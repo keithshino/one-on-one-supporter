@@ -1,6 +1,9 @@
 
 import React from 'react';
 import { View } from '../types';
+import { auth } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { LogOut } from 'lucide-react';
 
 interface SidebarProps {
   currentView: View;
@@ -41,6 +44,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
           メンバーリスト
         </button>
       </nav>
+      
+      {/* ログアウトボタン */}
+      <div className="p-4 border-t border-slate-700 mt-auto">
+        <button
+          onClick={() => auth.signOut()}
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
+        >
+          <LogOut size={16} />
+          ログアウト
+        </button>
+      </div>
 
       <div className="mt-auto pt-6 border-t border-slate-800">
         <div className="flex items-center gap-3 px-2">
