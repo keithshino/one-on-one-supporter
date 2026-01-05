@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MemberView from './components/MemberView';
-import LogEditor from './components/LogEditor';
+import { LogEditor } from './components/LogEditor';
 import { LoginPage } from './components/LoginPage'; // ※これは { } のままでいいかも（下で解説）
 import { useAuth } from './contexts/AuthContext';
 import { View, Member, Log, AppState } from './types';
