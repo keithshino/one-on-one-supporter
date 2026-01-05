@@ -8,6 +8,7 @@ import { LoginPage } from './components/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { View, Member, Log, AppState } from './types';
 import MyHistory from './components/MyHistory';
+import MyProfile from './components/MyProfile'; // 👈 追加
 import { getMembersFromFirestore, getLogsFromFirestore } from './lib/firestore'; 
 
 const App: React.FC = () => {
@@ -122,6 +123,11 @@ const App: React.FC = () => {
 
         {state.view === 'my-history' && (
           <MyHistory members={members} logs={logs} />
+        )}
+
+        {/* 👇 これを追加！ */}
+        {state.view === 'profile' && (
+          <MyProfile members={members} />
         )}
         
       </main>

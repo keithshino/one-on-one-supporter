@@ -74,20 +74,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
       </div>
 
       <div className="mt-auto p-6 border-t border-slate-800">
-        <div className="flex items-center gap-3 mb-4 px-2">
-          {/* 👇 アイコン画像も本物に！ */}
+        {/* 👇 ここをクリック可能なボタンに変更！ */}
+        <button 
+          onClick={() => onNavigate('profile')}
+          className={`w-full flex items-center gap-3 mb-4 px-2 py-2 rounded-lg transition-all text-left group ${
+            currentView === 'profile' ? 'bg-slate-800 ring-1 ring-slate-700' : 'hover:bg-slate-800'
+          }`}
+        >
           <img 
             src={user?.photoURL || "https://ui-avatars.com/api/?name=User&background=random"} 
             alt="Profile" 
-            className="w-10 h-10 rounded-full border-2 border-slate-700" 
+            className="w-10 h-10 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-colors" 
           />
           <div className="overflow-hidden">
-            {/* 👇 名前も本物に！ */}
-            <p className="font-bold text-sm truncate">{user?.displayName || "ゲスト"}</p>
-            {/* 役職の代わりにメールアドレスを表示しとくね */}
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+            <p className="font-bold text-sm truncate text-white group-hover:text-blue-400 transition-colors">{user?.displayName || "ゲスト"}</p>
+            <p className="text-xs text-slate-500 truncate">プロフィール編集 &gt;</p>
           </div>
-        </div>
+        </button>
         
         {/* 👇 ログアウトボタンを有効化！ */}
         <button 

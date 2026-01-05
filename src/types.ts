@@ -8,6 +8,12 @@ export interface Member {
   avatar: string;
   email?: string;      // 将来の招待機能用（?は「なくてもOK」の意味）
   managerId?: string;  // 「誰の部下か」を紐づける用
+  // 👇 【追加】プロフィール用の新項目
+  department?: string;  // 所属部署
+  dream?: string;       // 将来の夢
+  enthusiasm?: string;  // 今年度の意気込み
+  career?: string;      // 過去の経歴
+  joinDate?: string;    // 入社日
 }
 
 export interface Log {
@@ -23,7 +29,7 @@ export interface Log {
   isPlanned: boolean;
 }
 
-export type View = 'dashboard' | 'members' | 'editor' | 'my-history';
+export type View = 'dashboard' | 'members' | 'editor' | 'my-history' | 'profile';
 
 export interface AppState {
   view: View;
