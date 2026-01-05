@@ -1,32 +1,31 @@
 // src/components/LogEditor.tsx
 import React, { useState, useEffect } from 'react';
-import { Member, Log } from '../types'; // 👈 Log型もインポート
-import { ArrowLeft, Save, Sparkles, Loader2, Calendar } from 'lucide-react';
-import { addLogToFirestore, updateMemberInFirestore, updateLogInFirestore } from '../lib/firestore'; // 👈 updateLogInFirestoreを追加
+import { Member, Log, Mood } from '../types';
+import { ArrowLeft, Save, Sparkles, Loader2, Calendar, Sun, Cloud, CloudRain, Zap } from 'lucide-react';
+import { addLogToFirestore, updateMemberInFirestore, updateLogInFirestore } from '../lib/firestore';
 import { generateSummary } from '../lib/geminiService';
 
 interface LogEditorProps {
   member: Member;
-  initialLog?: Log | null; // 👈 編集用のログデータを受け取る（なければ新規作成）
+  initialLog?: Log | null;
   onBack: () => void;
   onSave: () => void;
 }
 
 export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack, onSave }) => {
-  // 初期値を設定（initialLogがあればその値、なければ空）
   const [formData, setFormData] = useState({
     date: initialLog ? initialLog.date : new Date().toISOString().split('T')[0],
     good: initialLog ? initialLog.good : '',
     more: initialLog ? initialLog.more : '',
     nextAction: initialLog ? initialLog.nextAction : '',
     summary: initialLog ? initialLog.summary || '' : '',
-    nextMeetingDate: ''
+    nextMeetingDate: '',
+    mood: (initialLog?.mood || 'sunny') as Mood // 👇 ムードの初期値
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // initialLogが変わったらフォームをリセット（念のため）
   useEffect(() => {
     if (initialLog) {
       setFormData(prev => ({
@@ -36,6 +35,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
         more: initialLog.more,
         nextAction: initialLog.nextAction,
         summary: initialLog.summary || '',
+        mood: initialLog.mood || 'sunny'
       }));
     }
   }, [initialLog]);
@@ -71,20 +71,18 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
         more: formData.more,
         nextAction: formData.nextAction,
         summary: formData.summary,
+        mood: formData.mood // 👈 ムードも保存！
       };
 
       if (initialLog) {
-        // 🔄 更新モード（既存ログの上書き）
         await updateLogInFirestore(initialLog.id, logData);
       } else {
-        // 🆕 新規作成モード
         await addLogToFirestore({
           ...logData,
           memberId: member.id,
           isPlanned: false,
         });
 
-        // 新規作成時のみ、次回予定日を更新
         if (formData.nextMeetingDate) {
           await updateMemberInFirestore(member.id, {
             nextMeetingDate: formData.nextMeetingDate
@@ -100,6 +98,21 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
       setIsSaving(false);
     }
   };
+
+  // ムード選択ボタンのコンポーネント（内部定義）
+  const MoodButton = ({ type, icon: Icon, label, color }: { type: Mood, icon: any, label: string, color: string }) => (
+    <button
+      onClick={() => setFormData({ ...formData, mood: type })}
+      className={`flex-1 p-3 rounded-xl border transition-all flex flex-col items-center gap-2 ${
+        formData.mood === type 
+          ? `bg-${color}-50 border-${color}-500 text-${color}-600 ring-1 ring-${color}-500 shadow-sm` 
+          : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'
+      }`}
+    >
+      <Icon size={24} className={formData.mood === type ? 'scale-110 transition-transform' : ''} />
+      <span className="text-xs font-bold">{label}</span>
+    </button>
+  );
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -123,14 +136,27 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
         <div className="max-w-3xl mx-auto space-y-8">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">実施日</label>
-              <input 
-                type="date" 
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-              />
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">実施日</label>
+                <input 
+                  type="date" 
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                />
+              </div>
+
+              {/* 👇 新登場！ムード選択エリア */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">今回の雰囲気 (Mood)</label>
+                <div className="flex gap-3">
+                  <MoodButton type="sunny" icon={Sun} label="晴れ" color="orange" />
+                  <MoodButton type="cloudy" icon={Cloud} label="曇り" color="slate" />
+                  <MoodButton type="rainy" icon={CloudRain} label="雨" color="blue" />
+                  <MoodButton type="stormy" icon={Zap} label="嵐" color="purple" />
+                </div>
+              </div>
             </div>
             
             {!initialLog && (
@@ -149,6 +175,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
             )}
           </div>
 
+          {/* Good / More / Next Action エリア */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-bold text-green-700 mb-2">Good (良かったこと)</label>
@@ -178,6 +205,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
             />
           </div>
 
+          {/* AI要約エリア */}
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
             <div className="flex items-center justify-between mb-4">
               <label className="flex items-center gap-2 font-bold text-slate-700">

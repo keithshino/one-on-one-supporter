@@ -1,7 +1,7 @@
 // src/lib/firestore.ts
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
-import { Log, Member } from "../types"; // Memberを追加
+import { Log, Member, Mood } from "../types"; // Memberを追加
 import { MOCK_MEMBERS } from "../mockData"; // モックデータを読み込む
 
 // ログを保存する関数（これは前回と同じ）
@@ -13,10 +13,12 @@ export const addLogToFirestore = async (logData: {
   nextAction: string;
   summary: string;
   isPlanned: boolean;
+  mood?: Mood; // 👈 追加
 }) => {
   try {
     await addDoc(collection(db, "logs"), {
       ...logData, // 中身を全部展開して保存
+      mood: logData.mood || 'cloudy', // 指定なければ曇り
       createdAt: serverTimestamp(),
     });
   } catch (e) {
@@ -146,6 +148,7 @@ export const updateLogInFirestore = async (
     more: string;
     nextAction: string;
     summary: string;
+    mood?: Mood; // 👈 追加
   }
 ) => {
   try {

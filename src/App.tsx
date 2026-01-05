@@ -49,6 +49,24 @@ const App: React.FC = () => {
 
   const currentUser = members.find(m => m.email === user?.email);
   const isAdmin = currentUser?.isAdmin === true;
+  //const isAdmin = false;
+
+  // 👇 【重要】ここで表示するメンバーをフィルターする！
+  const visibleMembers = React.useMemo(() => {
+    if (!currentUser) return []; // 自分の情報がまだロードされてなければ空
+    if (isAdmin) return members; // 管理者なら全員表示
+    
+    // 一般マネージャーなら、自分のIDが managerId に入っているメンバーだけ
+    return members.filter(m => m.managerId === currentUser.id);
+  }, [members, currentUser, isAdmin]);
+
+  // 👇 ログも、見えているメンバーのものだけに絞る！
+  const visibleLogs = React.useMemo(() => {
+    // 見えているメンバーのIDリストを作る
+    const visibleMemberIds = new Set(visibleMembers.map(m => m.id));
+    // そのメンバーのログだけ残す
+    return logs.filter(l => visibleMemberIds.has(l.memberId));
+  }, [logs, visibleMembers]);
 
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!user) return <LoginPage />;
@@ -90,17 +108,19 @@ const App: React.FC = () => {
       <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
         {state.view === 'dashboard' && (
           <Dashboard 
-            members={members} 
-            logs={logs} 
+            members={visibleMembers} // 👈 フィルター済みのメンバーを渡す
+            logs={visibleLogs}       // 👈 フィルター済みのログを渡す
             // 👇 修正2：ここ！この行を追加しないとダッシュボードが怒る！
-            onSelectLog={handleSelectLog} 
+            onSelectLog={handleSelectLog}
+            onCreateLog={handleCreateLog} 
+            currentUserId={currentUser?.id} // 👈 ログイン中のユーザーIDを渡す
           />
         )}
         
         {state.view === 'members' && (
           <MemberView 
-            members={members} 
-            logs={logs}
+            members={visibleMembers} // 👈 フィルター済みのメンバーを渡す
+            logs={visibleLogs}       // 👈 フィルター済みのログを渡す
             memberId={selectedMember?.id || null}
             onSelectMember={handleSelectMember}
             onSelectLog={handleSelectLog}
