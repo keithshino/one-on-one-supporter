@@ -1,7 +1,7 @@
 // src/components/MemberView.tsx
 import React, { useState } from 'react';
 import { Member, Log } from '../types';
-import { Plus, User, Briefcase, UserPlus, Cloud, Trash2, Pencil, Filter, Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, Loader2 } from 'lucide-react'; // アイコン大量追加！
+import { Plus, User, Briefcase, UserPlus, Cloud, Trash2, Pencil, Filter, Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, Loader2, ShieldCheck } from 'lucide-react'; // アイコン大量追加！
 import { addMemberToFirestore, deleteMemberFromFirestore, updateMemberInFirestore } from '../lib/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -29,7 +29,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
   // フォーム用データ（新項目も追加！）
   const [formData, setFormData] = useState({ 
     id: '', name: '', role: '', email: '', 
-    department: '', dream: '', enthusiasm: '', career: '', avatar: '' 
+    department: '', dream: '', enthusiasm: '', career: '', avatar: '',
+    isAdmin: false 
   });
 
   const displayedMembers = showOnlyMyTeam && user
@@ -41,7 +42,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
     const randomAvatar = `https://picsum.photos/seed/${Math.floor(Math.random() * 1000)}/200`;
     setFormData({ 
       id: '', name: '', role: '', email: '', 
-      department: '', dream: '', enthusiasm: '', career: '', avatar: randomAvatar 
+      department: '', dream: '', enthusiasm: '', career: '', avatar: randomAvatar,
+      isAdmin: false // デフォルトはfalse 
     });
     setMode('add');
   };
@@ -57,7 +59,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
       dream: member.dream || '',
       enthusiasm: member.enthusiasm || '',
       career: member.career || '',
-      avatar: member.avatar
+      avatar: member.avatar,
+      isAdmin: member.isAdmin || false // 既存の値をセット
     });
     setMode('edit');
   };
@@ -81,7 +84,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
         dream: formData.dream,
         enthusiasm: formData.enthusiasm,
         career: formData.career,
-        avatar: formData.avatar // アバターも更新！
+        avatar: formData.avatar, // アバターも更新！
+        isAdmin: formData.isAdmin // 👈 これも保存！
       };
 
       if (mode === 'add') {
@@ -129,6 +133,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
           </div>
           <button onClick={startAdd} className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors"><UserPlus size={20} /></button>
         </div>
+
         <div className="overflow-y-auto flex-1 p-2 space-y-2">
           {displayedMembers.map(member => (
             <button key={member.id} onClick={() => onSelectMember(member)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all group ${selectedMember?.id === member.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200 shadow-sm' : 'hover:bg-slate-50 border border-transparent'}`}>
@@ -137,7 +142,11 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 {user && member.managerId === user.uid && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-full"></div>}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 truncate">{member.name}</p>
+                <p className="font-bold text-slate-800 truncate">
+                  {member.name}
+                  {/* 👇 管理者バッジを表示してあげると分かりやすい！ */}
+                  {member.isAdmin && <ShieldCheck size={14} className="text-blue-500" />}
+                </p>
                 <p className="text-xs text-slate-500 truncate">{member.role}</p>
               </div>
               <div className="flex gap-1">
@@ -201,6 +210,22 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 </div>
               </div>
 
+              {/* 👇 【重要】管理者権限チェックボックス */}
+              <div className="pt-2">
+                  <label className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      checked={formData.isAdmin} 
+                      onChange={(e) => setFormData({ ...formData, isAdmin: e.target.checked })}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" 
+                    />
+                    <div>
+                      <p className="font-bold text-slate-700 text-sm flex items-center gap-1"><ShieldCheck size={16} /> 管理者権限を付与する</p>
+                      <p className="text-xs text-slate-500">※ダッシュボードや全メンバーリストへのアクセスが可能になります。</p>
+                    </div>
+                  </label>
+              </div>
+
               {/* 詳細情報 */}
               <div className="space-y-4">
                 <h3 className="font-bold text-slate-700 flex items-center gap-2 pb-2 border-b border-slate-100"><Sparkles size={18}/> キャリア・ビジョン</h3>
@@ -238,7 +263,15 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-3xl font-bold text-slate-800 mb-1">{selectedMember.name}</h2>
+                      <h2 className="text-3xl font-bold text-slate-800 mb-1">
+                        {selectedMember.name}
+                        {/* 👇 管理者の場合だけ、このバッジを表示！ */}
+                        {selectedMember.isAdmin && (
+                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 font-bold flex items-center gap-1">
+                            <ShieldCheck size={12}/> Admin
+                          </span>
+                        )}
+                      </h2>
                       <div className="flex items-center gap-3 text-slate-600 mb-4">
                         <span className="flex items-center gap-1 text-sm bg-white px-2 py-1 rounded border border-slate-200"><Briefcase size={14}/> {selectedMember.role}</span>
                         {selectedMember.department && <span className="flex items-center gap-1 text-sm bg-white px-2 py-1 rounded border border-slate-200"><Building2 size={14}/> {selectedMember.department}</span>}

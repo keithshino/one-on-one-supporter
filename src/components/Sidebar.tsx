@@ -8,9 +8,10 @@ import { LayoutDashboard, Users, LogOut, MessageSquare, History } from 'lucide-r
 interface SidebarProps {
   currentView: View;
   onNavigate: (view: View) => void;
+  isAdmin: boolean; // 👈 追加！
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isAdmin }) => {
   // 👇 本物のユーザー情報とログアウト関数を持ってくる！
   const { user, logout } = useAuth();
 
@@ -35,30 +36,36 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
         </div>
 
         <nav className="space-y-2">
-          <button
-            onClick={() => onNavigate('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              currentView === 'dashboard'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard size={20} />
-            <span className="font-medium">ダッシュボード</span>
-          </button>
+          {/* 👇 管理者のみ表示！ */}
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                  currentView === 'dashboard'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <LayoutDashboard size={20} />
+                <span className="font-medium">ダッシュボード</span>
+              </button>
 
-          <button
-            onClick={() => onNavigate('members')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-              currentView === 'members'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Users size={20} />
-            <span className="font-medium">メンバーリスト</span>
-          </button>
+              <button
+                onClick={() => onNavigate('members')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                  currentView === 'members'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <Users size={20} />
+                <span className="font-medium">メンバーリスト</span>
+              </button>
+            </>
+          )}
 
+          {/* 👇 全員表示（My 1on1） */}
           <button
             onClick={() => onNavigate('my-history')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${

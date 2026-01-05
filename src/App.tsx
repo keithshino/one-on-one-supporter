@@ -45,6 +45,9 @@ const App: React.FC = () => {
   }, [user]);
 
   // ... (ここから下のロジックは今までと同じでOK！) ...
+  // 👇 現在のユーザーが管理者かどうか判定
+  const currentUser = members.find(m => m.email === user?.email);
+  const isAdmin = currentUser?.isAdmin === true;
 
   const navigate = (view: View) => {
     setState(prev => ({ ...prev, view, editingLogId: null, selectedMemberId: null }));
@@ -90,7 +93,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar currentView={state.view} onNavigate={navigate} />
+      <Sidebar currentView={state.view} onNavigate={navigate} isAdmin={isAdmin} />
       
       <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
         {state.view === 'dashboard' && (

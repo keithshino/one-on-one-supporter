@@ -14,6 +14,7 @@ export interface Member {
   enthusiasm?: string;  // 今年度の意気込み
   career?: string;      // 過去の経歴
   joinDate?: string;    // 入社日
+  isAdmin?: boolean;   // 管理者権限
 }
 
 export interface Log {
