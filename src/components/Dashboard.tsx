@@ -1,7 +1,8 @@
 
 import React from 'react';
-import Calendar from './Calendar';
 import { Log, Member, Mood } from '../types';
+import { Calendar, ChevronLeft, ChevronRight, Sun, Cloud, CloudRain, Sparkles, Database } from 'lucide-react'; // Databaseアイコン追加
+import { seedMembers } from '../lib/firestore'; // 👈 インポート追加！
 
 interface DashboardProps {
   logs: Log[];
@@ -33,10 +34,24 @@ const Dashboard: React.FC<DashboardProps> = ({ logs, members, onSelectLog }) => 
   const getMemberName = (id: string) => members.find(m => m.id === id)?.name || '不明';
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header>
-        <h2 className="text-2xl font-bold text-slate-800">ダッシュボード</h2>
-        <p className="text-slate-500">現在のステータスと今後の予定を確認します。</p>
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <header className="mb-8 flex justify-between items-center"> {/* flexを追加 */}
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">ダッシュボード</h1>
+          <p className="text-slate-500 mt-2">現在のステータスと今後の予定を確認します。</p>
+        </div>
+
+        {/* 👇 【一時的】データ移行ボタン */}
+        <button 
+          onClick={() => {
+            if(window.confirm('本当にモックデータをデータベースに登録してよか？')) {
+              seedMembers();
+            }
+          }}
+          className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-gray-700"
+        >
+          <Database size={16} /> 初期データ登録
+        </button>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

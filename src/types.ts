@@ -6,6 +6,8 @@ export interface Member {
   name: string;
   role: string;
   avatar: string;
+  email?: string;      // 将来の招待機能用（?は「なくてもOK」の意味）
+  managerId?: string;  // 「誰の部下か」を紐づける用
 }
 
 export interface Log {

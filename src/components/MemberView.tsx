@@ -1,139 +1,239 @@
-
+// src/components/MemberView.tsx
 import React, { useState } from 'react';
-import { Member, Log, Mood } from '../types';
+import { Member, Log } from '../types';
+import { Plus, User, Briefcase, X, Loader2, UserPlus, Cloud, Trash2 } from 'lucide-react';
+import { addMemberToFirestore, deleteMemberFromFirestore } from '../lib/firestore'; // 👈 インポート追加
 
 interface MemberViewProps {
   members: Member[];
   logs: Log[];
+  memberId: string | null;
   onSelectMember: (member: Member) => void;
   onSelectLog: (log: Log) => void;
   onCreateLog: (memberId: string) => void;
+  // 👇 メンバーを追加したら、親(App.tsx)に「再読み込みして！」って伝える用
+  onMemberAdded?: () => void; 
 }
 
-const MoodIcon = ({ mood }: { mood: Mood }) => {
-  switch (mood) {
-    case 'sunny': return <span>☀️</span>;
-    case 'cloudy': return <span>☁️</span>;
-    case 'rainy': return <span>🌧️</span>;
-    case 'stormy': return <span>⚡</span>;
-    default: return null;
-  }
-};
+// ⚠️ onMemberAdded を受け取るように変更！
+export const MemberView: React.FC<MemberViewProps> = ({ 
+  members, logs, memberId, onSelectMember, onSelectLog, onCreateLog, onMemberAdded 
+}) => {
+  const selectedMember = members.find(m => m.id === memberId);
+  const memberLogs = logs.filter(l => l.memberId === memberId);
 
-const MemberView: React.FC<MemberViewProps> = ({ members, logs, onSelectLog, onCreateLog }) => {
-  const [selectedId, setSelectedId] = useState<string | null>(members[0]?.id || null);
+  // メンバー追加モードかどうか
+  const [isAdding, setIsAdding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState("");
 
-  const selectedMember = members.find(m => m.id === selectedId);
-  const memberLogs = logs
-    .filter(l => l.memberId === selectedId)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // メンバー保存処理
+  const handleAddMember = async () => {
+    if (!newMemberName || !newMemberRole) return;
+    
+    try {
+      setIsSubmitting(true);
+      await addMemberToFirestore(newMemberName, newMemberRole);
+      
+      setIsAdding(false);
+      setNewMemberName("");
+      setNewMemberRole("");
+      
+      // 親(App.tsx)に「データ増えたよ！再読み込み頼む！」と伝える
+      if (onMemberAdded) {
+         // ここは実はApp.tsx側で対応が必要。今回は簡易的にリロードで対応するか、
+         // App.tsxで onMemberAdded を渡すように修正するのがベスト。
+         // いったん「alert」で誤魔化さず、リロードを促すか、App.tsxを直すか...
+         // ★今回は一番簡単な「ブラウザリロード」でデータを反映させるばい！
+         window.location.reload(); 
+      }
+    } catch (error) {
+      alert("追加に失敗した...");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 👇 【追加】削除ボタンを押したときの処理
+  const handleDeleteMember = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation(); // これがないと、削除ボタンを押したのに行自体をクリックしたことになっちゃう！
+    
+    if (window.confirm(`本当に「${name}」さんを削除してもよか？\n（※この操作は取り消せんばい！）`)) {
+      try {
+        await deleteMemberFromFirestore(id);
+        // 簡単のためリロードで反映！
+        window.location.reload();
+      } catch (error) {
+        alert("削除に失敗した...");
+      }
+    }
+  };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex gap-6 overflow-hidden animate-in slide-in-from-bottom-4 duration-500">
-      {/* Member Sidebar */}
-      <div className="w-80 flex flex-col gap-4 overflow-y-auto pr-2">
-        <h2 className="text-xl font-bold text-slate-800 px-2 mb-2">メンバー一覧</h2>
-        {members.map(member => (
-          <button
-            key={member.id}
-            onClick={() => setSelectedId(member.id)}
-            className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
-              selectedId === member.id 
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100' 
-                : 'bg-white border-slate-200 text-slate-800 hover:border-indigo-300'
-            }`}
+    <div className="flex h-full gap-6">
+      {/* 左側：メンバーリスト */}
+      <div className="w-1/3 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+          <h2 className="font-bold text-slate-700">メンバー一覧</h2>
+          
+          {/* 👇 メンバー追加ボタン */}
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors"
+            title="メンバーを追加"
           >
-            <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full border-2 border-white/20" />
-            <div>
-              <p className="font-bold">{member.name}</p>
-              <p className={`text-xs ${selectedId === member.id ? 'text-indigo-100' : 'text-slate-500'}`}>{member.role}</p>
-            </div>
+            <UserPlus size={20} />
           </button>
-        ))}
+        </div>
+        
+        <div className="overflow-y-auto flex-1 p-2 space-y-2">
+          {members.map(member => (
+            <button
+              key={member.id}
+              onClick={() => onSelectMember(member)}
+              className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all ${
+                selectedMember?.id === member.id
+                  ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200 shadow-sm'
+                  : 'hover:bg-slate-50 border border-transparent'
+              }`}
+            >
+              <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full bg-slate-200 object-cover" />
+              <div>
+                <p className="font-bold text-slate-800">{member.name}</p>
+                <p className="text-xs text-slate-500">{member.role}</p>
+              </div>
+
+              {/* 👇 【追加】ゴミ箱ボタン（ホバーした時だけ出るように group-hover を使用） */}
+              <div 
+                onClick={(e) => handleDeleteMember(e, member.id, member.name)}
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                title="削除"
+              >
+                <Trash2 size={16} />
+              </div>
+
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* History Detail */}
-      <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-        {selectedMember ? (
-          <>
-            <header className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <div className="flex items-center gap-6">
-                <img src={selectedMember.avatar} alt={selectedMember.name} className="w-20 h-20 rounded-2xl border-4 border-white shadow-sm" />
-                <div>
-                  <h3 className="text-2xl font-bold text-slate-800">{selectedMember.name}</h3>
-                  <p className="text-slate-500">{selectedMember.role}</p>
+      {/* 右側：詳細 or 追加フォーム */}
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-y-auto">
+        
+        {/* 👇 メンバー追加フォーム（isAddingがONのときだけ表示） */}
+        {isAdding ? (
+          <div className="max-w-md mx-auto mt-10">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <UserPlus className="text-blue-500" /> 新しいメンバーを追加
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">名前</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    className="w-full pl-10 p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="例：山田 太郎"
+                  />
                 </div>
               </div>
-              <button
-                onClick={() => onCreateLog(selectedMember.id)}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-transform active:scale-95 shadow-md shadow-indigo-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                新規ログ作成
-              </button>
-            </header>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">役職 / ロール</label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-3 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    value={newMemberRole}
+                    onChange={(e) => setNewMemberRole(e.target.value)}
+                    className="w-full pl-10 p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="例：Frontend Engineer"
+                  />
+                </div>
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-8 space-y-6">
-              <h4 className="font-bold text-slate-700 flex items-center gap-2">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                1on1 履歴
-              </h4>
-              <div className="grid gap-4">
-                {memberLogs.length > 0 ? memberLogs.map(log => (
-                  <div 
-                    key={log.id} 
-                    onClick={() => onSelectLog(log)}
-                    className="p-6 rounded-2xl border border-slate-100 bg-slate-50 hover:bg-white hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
-                  >
-                    <div className="flex justify-between items-start mb-4">
+              <div className="flex gap-3 pt-4">
+                <button 
+                  onClick={() => setIsAdding(false)}
+                  className="flex-1 py-3 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors"
+                >
+                  キャンセル
+                </button>
+                <button 
+                  onClick={handleAddMember}
+                  disabled={!newMemberName || !newMemberRole || isSubmitting}
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : "登録する"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : selectedMember ? (
+          // 👇 ここは今まで通りの詳細表示
+          <>
+            <div className="flex justify-between items-start mb-8">
+              <div className="flex items-center gap-4">
+                <img src={selectedMember.avatar} alt={selectedMember.name} className="w-20 h-20 rounded-full bg-slate-100 object-cover shadow-sm" />
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">{selectedMember.name}</h2>
+                  <p className="text-slate-500 font-medium">{selectedMember.role}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => onCreateLog(selectedMember.id)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all"
+              >
+                <Plus size={20} /> 新規ログ作成
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                🕒 1on1 履歴
+              </h3>
+              {memberLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                  まだ記録がありません
+                </div>
+              ) : (
+                memberLogs.map(log => (
+                  <div key={log.id} onClick={() => onSelectLog(log)} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer group">
+                    <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${log.isPlanned ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${log.isPlanned ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
                           {log.isPlanned ? '予定' : '実施済み'}
                         </span>
-                        <p className="text-slate-500 font-medium">
-                          {new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).format(new Date(log.date))}
-                        </p>
+                        <span className="text-slate-500 font-medium">{log.date}</span>
                       </div>
-                      {!log.isPlanned && <div className="text-2xl"><MoodIcon mood={log.mood} /></div>}
+                      <Cloud className="text-slate-300 group-hover:text-blue-400 transition-colors" />
                     </div>
-                    {log.isPlanned ? (
-                      <p className="text-slate-400 italic">準備中のメモはありません</p>
+                    {log.summary ? (
+                       <div className="mt-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                         <span className="font-bold text-slate-400 text-xs block mb-1">Summary</span>
+                         {log.summary}
+                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          <span className="text-xs font-bold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-500">Summary</span>
-                          <p className="text-sm text-slate-700 line-clamp-2">{log.summary || 'サマリー未作成'}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-xs font-bold bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-500">Next Action</span>
-                          <p className="text-sm text-slate-700 line-clamp-1">{log.nextAction || '未設定'}</p>
-                        </div>
-                      </div>
+                       <p className="text-slate-600 line-clamp-2">{log.good}</p>
                     )}
-                    <div className="mt-4 flex justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-indigo-600 text-sm font-bold flex items-center gap-1">
-                        詳細を見る <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                      </span>
+                    <div className="mt-3 flex gap-2">
+                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">Next Action</span>
+                      <span className="text-xs text-slate-600 truncate flex-1 pt-1">{log.nextAction}</span>
                     </div>
                   </div>
-                )) : (
-                  <div className="text-center py-20 border-2 border-dashed border-slate-100 rounded-3xl">
-                    <p className="text-slate-400">過去の履歴がありません</p>
-                  </div>
-                )}
-              </div>
+                ))
+              )}
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-slate-400">
-            <svg className="w-20 h-20 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <p>メンバーを選択してください</p>
+          <div className="h-full flex flex-col items-center justify-center text-slate-400">
+            <User size={48} className="mb-4 text-slate-300" />
+            <p>左のリストからメンバーを選択するか、<br/>追加ボタンで新しいメンバーを登録してください</p>
           </div>
         )}
       </div>
@@ -141,4 +241,5 @@ const MemberView: React.FC<MemberViewProps> = ({ members, logs, onSelectLog, onC
   );
 };
 
+// 👇 これ大事！ default export にしておく！
 export default MemberView;

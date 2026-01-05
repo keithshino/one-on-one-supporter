@@ -1,7 +1,8 @@
 // src/lib/firestore.ts
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import { Log } from "../types";
+import { Log, Member } from "../types"; // Memberを追加
+import { MOCK_MEMBERS } from "../mockData"; // モックデータを読み込む
 
 // ログを保存する関数（これは前回と同じ）
 export const addLogToFirestore = async (memberId: string, content: Omit<Log, 'id' | 'createdAt' | 'memberId'>) => {
@@ -44,5 +45,77 @@ export const getLogsFromFirestore = async (): Promise<Log[]> => {
   } catch (e) {
     console.error("Error fetching documents: ", e);
     return [];
+  }
+};
+
+// 👇 【追加1】メンバー一覧を取ってくる関数
+export const getMembersFromFirestore = async (): Promise<Member[]> => {
+  try {
+    const q = query(collection(db, "members"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Member));
+  } catch (e) {
+    console.error("メンバー取得エラー:", e);
+    return [];
+  }
+};
+
+// 👇 【追加2】初期データをFirestoreに流し込む関数（引っ越し用）
+export const seedMembers = async () => {
+  try {
+    // 既存のモックデータを1つずつFirestoreに入れる
+    for (const member of MOCK_MEMBERS) {
+      // IDが "1" とかだと被る可能性があるけん、Firestoreに自動でIDを作らせる
+      // (あえて setDoc ではなく addDoc を使うばい)
+      await addDoc(collection(db, "members"), {
+        name: member.name,
+        role: member.role,
+        avatar: member.avatar,
+        email: "", // 今は空っぽで
+        managerId: "", // 今は紐付けなしで
+        createdAt: serverTimestamp(),
+      });
+    }
+    console.log("メンバーの移行完了！");
+    alert("初期メンバーの登録が完了したばい！");
+  } catch (e) {
+    console.error("移行エラー:", e);
+    alert("移行に失敗した...");
+  }
+};
+
+// 👇 新しいメンバーを登録する関数
+export const addMemberToFirestore = async (name: string, role: string) => {
+  try {
+    // アイコンはとりあえずランダムで可愛い画像を割り当てるばい！
+    const randomId = Math.floor(Math.random() * 1000);
+    const avatarUrl = `https://picsum.photos/seed/${randomId}/200`;
+
+    const docRef = await addDoc(collection(db, "members"), {
+      name: name,
+      role: role,
+      avatar: avatarUrl,
+      email: "",
+      managerId: "",
+      createdAt: serverTimestamp(),
+    });
+    
+    return docRef.id;
+  } catch (e) {
+    console.error("メンバー追加エラー:", e);
+    throw e;
+  }
+};
+
+// 👇 【追加】メンバーを削除する関数
+export const deleteMemberFromFirestore = async (memberId: string) => {
+  try {
+    await deleteDoc(doc(db, "members", memberId));
+  } catch (e) {
+    console.error("メンバー削除エラー:", e);
+    throw e;
   }
 };

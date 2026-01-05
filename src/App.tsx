@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react'; // useEffectを追加
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MemberView from './components/MemberView';
@@ -7,8 +7,8 @@ import { LogEditor } from './components/LogEditor';
 import { LoginPage } from './components/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { View, Member, Log, AppState } from './types';
-import { MOCK_MEMBERS } from './mockData'; // MOCK_LOGS はもう要らん！
-import { getLogsFromFirestore } from './lib/firestore'; // 追加！
+// MOCK_MEMBERS はもう削除してOK！
+import { getMembersFromFirestore, getLogsFromFirestore } from './lib/firestore'; 
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
@@ -19,24 +19,31 @@ const App: React.FC = () => {
     editingLogId: null,
   });
 
-  const [members] = useState<Member[]>(MOCK_MEMBERS);
-  // 👇【変更】最初は空っぽでスタート！
+  // 👇 【変更】最初は空っぽでスタートして、DBから読み込む！
+  const [members, setMembers] = useState<Member[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
 
-  // 👇【追加】ログインしたら、Firestoreからデータを取ってくる！
+  // 👇 【変更】メンバーとログ、両方を読み込むように進化！
   useEffect(() => {
-    const fetchLogs = async () => {
+    const fetchData = async () => {
       if (user) {
         console.log("Firestoreからデータを読み込み中...");
-        const fetchedLogs = await getLogsFromFirestore();
+        
+        // 並行して両方のデータを取ってくる（待ち時間が減るテクニック！）
+        const [fetchedMembers, fetchedLogs] = await Promise.all([
+          getMembersFromFirestore(),
+          getLogsFromFirestore()
+        ]);
+
+        setMembers(fetchedMembers);
         setLogs(fetchedLogs);
-        console.log("読み込み完了！", fetchedLogs);
+        console.log("読み込み完了！", { members: fetchedMembers, logs: fetchedLogs });
       }
     };
-    fetchLogs();
-  }, [user]); // userが変わるたび（ログイン時）に実行
+    fetchData();
+  }, [user]);
 
-  // ...ここから下は今までと同じロジック...
+  // ... (ここから下のロジックは今までと同じでOK！) ...
 
   const navigate = (view: View) => {
     setState(prev => ({ ...prev, view, editingLogId: null, selectedMemberId: null }));
@@ -59,7 +66,6 @@ const App: React.FC = () => {
   };
 
   const handleSaveLog = (updatedLog: Log) => {
-    // 保存後は、ローカルのリストも更新してあげる（再読み込みしなくていいように）
     setLogs(prev => {
       const exists = prev.some(l => l.id === updatedLog.id);
       if (exists) {
@@ -67,7 +73,6 @@ const App: React.FC = () => {
       }
       return [updatedLog, ...prev];
     });
-    // メンバーリストに戻る（ダッシュボードに戻りたければ 'dashboard' にしてね）
     setState(prev => ({ ...prev, view: 'dashboard' })); 
   };
 
