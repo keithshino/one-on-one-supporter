@@ -1,37 +1,50 @@
+// src/geminiService.ts
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-import { GoogleGenAI, Type } from "@google/genai";
+// 環境変数から鍵を取り出す
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-
-export const generateLogSummary = async (memo: string, good: string, more: string, next: string): Promise<string> => {
-  if (!process.env.API_KEY) {
-    return "AI要約機能を利用するにはAPIキーの設定が必要です。";
+export const generateSummary = async (
+  good: string, 
+  more: string, 
+  nextAction: string, 
+  memo: string
+): Promise<string> => {
+  if (!API_KEY) {
+    console.error("Gemini API Keyが見つかりません！.env.localを確認してね");
+    return "APIキー設定エラー";
   }
 
-  const prompt = `
-    以下の1on1ミーティングの内容から、簡潔な要約（150文字程度）を作成してください。
-    
-    【Good】: ${good}
-    【More/課題】: ${more}
-    【ネクストアクション】: ${next}
-    【マネージャー用メモ】: ${memo}
-    
-    要約は「〜という状況で、今後は〜を行う方針」のような一貫した文体でお願いします。
-  `;
-
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        maxOutputTokens: 300,
-        temperature: 0.7,
-      }
-    });
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    return response.text || "要約の生成に失敗しました。";
+    // AIへの命令文（プロンプト）
+    const prompt = `
+      以下の1on1ミーティングのメモを読んで、重要なポイントを「簡潔に、最大3行程度で」要約してください。
+      口調は「〜について話した」「〜することになった」のような客観的なトーンでお願いします。
+
+      【Good（良かったこと）】
+      ${good}
+
+      【More（課題・悩み）】
+      ${more}
+
+      【Next Action（次やること）】
+      ${nextAction}
+
+      【Memo（その他）】
+      ${memo}
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return text;
+
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "AI要約の生成中にエラーが発生しました。";
+    return "要約の生成に失敗しました";
   }
 };

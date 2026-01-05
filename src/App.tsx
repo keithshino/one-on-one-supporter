@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
-// ↓↓↓ { } を外したよ！ ↓↓↓
+// src/App.tsx
+import React, { useState, useEffect } from 'react'; // useEffectを追加
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MemberView from './components/MemberView';
 import { LogEditor } from './components/LogEditor';
-import { LoginPage } from './components/LoginPage'; // ※これは { } のままでいいかも（下で解説）
+import { LoginPage } from './components/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { View, Member, Log, AppState } from './types';
-import { MOCK_MEMBERS, MOCK_LOGS } from './mockData';
+import { MOCK_MEMBERS } from './mockData'; // MOCK_LOGS はもう要らん！
+import { getLogsFromFirestore } from './lib/firestore'; // 追加！
 
 const App: React.FC = () => {
-  // 1. まず最初に「今ログインしてる？」を確認する（ここが追加ポイント！）
   const { user, loading } = useAuth();
 
-  // 2. もともとあった状態管理（そのまま）
   const [state, setState] = useState<AppState>({
     view: 'dashboard',
     selectedMemberId: null,
@@ -21,9 +20,24 @@ const App: React.FC = () => {
   });
 
   const [members] = useState<Member[]>(MOCK_MEMBERS);
-  const [logs, setLogs] = useState<Log[]>(MOCK_LOGS);
+  // 👇【変更】最初は空っぽでスタート！
+  const [logs, setLogs] = useState<Log[]>([]);
 
-  // 3. もともとあった便利関数たち（そのまま）
+  // 👇【追加】ログインしたら、Firestoreからデータを取ってくる！
+  useEffect(() => {
+    const fetchLogs = async () => {
+      if (user) {
+        console.log("Firestoreからデータを読み込み中...");
+        const fetchedLogs = await getLogsFromFirestore();
+        setLogs(fetchedLogs);
+        console.log("読み込み完了！", fetchedLogs);
+      }
+    };
+    fetchLogs();
+  }, [user]); // userが変わるたび（ログイン時）に実行
+
+  // ...ここから下は今までと同じロジック...
+
   const navigate = (view: View) => {
     setState(prev => ({ ...prev, view, editingLogId: null, selectedMemberId: null }));
   };
@@ -45,6 +59,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveLog = (updatedLog: Log) => {
+    // 保存後は、ローカルのリストも更新してあげる（再読み込みしなくていいように）
     setLogs(prev => {
       const exists = prev.some(l => l.id === updatedLog.id);
       if (exists) {
@@ -52,33 +67,23 @@ const App: React.FC = () => {
       }
       return [updatedLog, ...prev];
     });
-    setState(prev => ({ ...prev, view: 'members' })); // メンバービューに戻るようにしたよ
+    // メンバーリストに戻る（ダッシュボードに戻りたければ 'dashboard' にしてね）
+    setState(prev => ({ ...prev, view: 'dashboard' })); 
   };
 
   const currentMember = state.selectedMemberId ? members.find(m => m.id === state.selectedMemberId) : null;
   const currentLog = state.editingLogId ? logs.find(l => l.id === state.editingLogId) : null;
 
-  // ---------------------------------------------------------
-  // 4. ここで門番のチェック！ (ここが最大の追加ポイント！)
-  // ---------------------------------------------------------
-
-  // 準備中（ローディング）なら、待ってもらう
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  // ユーザーがいなかったら（ログインしてなかったら）、ログイン画面を返す！
-  // これで、下のメイン画面には進めなくなるばい。
   if (!user) {
     return <LoginPage />;
   }
 
-  // ---------------------------------------------------------
-  // 5. ログインOKなら、いつものアプリを表示！
-  // ---------------------------------------------------------
   return (
     <div className="flex min-h-screen">
-      {/* Sidebarにログアウト機能をつけるために、propsはいったんそのままでOK */}
       <Sidebar currentView={state.view} onNavigate={navigate} />
       
       <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
@@ -90,15 +95,14 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* 'members' ビューがない場合はエラーになるかも？ 元のコードに合わせて修正したよ */}
-        {state.view === 'members' && ( // もし元のコードが 'member' ならここ直してね
+        {state.view === 'members' && (
           <MemberView 
             members={members} 
             logs={logs} 
             onSelectMember={(m) => setState({ ...state, selectedMemberId: m.id })}
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog}
-            memberId={state.selectedMemberId} // 追加のpropsが必要かも？
+            memberId={state.selectedMemberId}
           />
         )}
 

@@ -1,19 +1,20 @@
 // src/components/LogEditor.tsx
 import React, { useState } from 'react';
-import { Save, X, Calendar, Smile, Frown, Cloud, Sun, CloudRain, Loader2 } from 'lucide-react';
+import { Save, X, Calendar, Smile, Cloud, Sun, CloudRain, Loader2, Sparkles } from 'lucide-react';
 import { Member, Log } from '../types';
 import { addLogToFirestore } from '../lib/firestore';
+import { generateSummary } from '../geminiService'; // 👈 AI係を呼ぶ！
 
 interface LogEditorProps {
   log: Log | null;
   member: Member;
-  // 👇 【変更1】ここ重要！「データ渡すよ！」って型を変える
   onSave: (newLog: Log) => void; 
   onCancel: () => void;
 }
 
 export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingText, setLoadingText] = useState(""); // ロード中の文字を変える用
   
   const [formData, setFormData] = useState({
     date: (log?.date || new Date().toISOString()).split('T')[0],
@@ -27,8 +28,19 @@ export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCan
   const handleSave = async () => {
     try {
       setIsSubmitting(true);
-      
-      // 1. Firestoreに保存して、IDをもらう
+      setLoadingText("AIが要約中..."); // ユーザーに状況を伝える
+
+      // 1. まずGeminiに要約してもらう！
+      const aiSummary = await generateSummary(
+        formData.good,
+        formData.more,
+        formData.nextAction,
+        formData.memo
+      );
+
+      setLoadingText("保存中...");
+
+      // 2. 要約付きでFirestoreに保存
       const newDocId = await addLogToFirestore(member.id, {
         date: formData.date,
         mood: formData.mood as 'sunny' | 'cloudy' | 'rainy' | 'stormy',
@@ -36,13 +48,13 @@ export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCan
         more: formData.more,
         nextAction: formData.nextAction,
         memo: formData.memo,
-        summary: "",
+        summary: aiSummary, // 👈 ここにAIの成果が入る！
         isPlanned: false,
       });
 
-      // 👇 【変更2】親に渡すための「完全なデータ」を作る
+      // 3. 親コンポーネントに渡すデータを作る
       const newLogData: Log = {
-        id: newDocId, // Firestoreから返ってきたIDを使う
+        id: newDocId,
         memberId: member.id,
         date: formData.date,
         mood: formData.mood as any,
@@ -50,11 +62,10 @@ export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCan
         more: formData.more,
         nextAction: formData.nextAction,
         memo: formData.memo,
-        summary: "",
+        summary: aiSummary, // 👈 こっちにも入れる！
         isPlanned: false,
       };
 
-      // 親に「ほら、これ使って！」とデータを渡す
       onSave(newLogData);
 
     } catch (error) {
@@ -73,7 +84,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCan
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             📝 {member.name} との1on1
           </h2>
-          <p className="text-sm text-slate-500">内容を記録してください</p>
+          <p className="text-sm text-slate-500">AIが自動で要約を作成します✨</p>
         </div>
         <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 transition-colors">
           <X size={24} />
@@ -164,7 +175,15 @@ export const LogEditor: React.FC<LogEditorProps> = ({ log, member, onSave, onCan
       <div className="p-6 border-t border-slate-100 bg-slate-50 rounded-b-xl flex justify-end gap-3">
         <button onClick={onCancel} disabled={isSubmitting} className="px-6 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors font-medium disabled:opacity-50">キャンセル</button>
         <button onClick={handleSave} disabled={isSubmitting} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2 disabled:opacity-50">
-          {isSubmitting ? <><Loader2 size={20} className="animate-spin" /> 保存中...</> : <><Save size={20} /> 保存する</>}
+          {isSubmitting ? (
+            <>
+              <Loader2 size={20} className="animate-spin" /> {loadingText}
+            </>
+          ) : (
+            <>
+              <Sparkles size={20} /> 保存＆AI要約
+            </>
+          )}
         </button>
       </div>
     </div>
