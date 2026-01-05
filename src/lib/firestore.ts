@@ -88,7 +88,7 @@ export const seedMembers = async () => {
 };
 
 // 👇 新しいメンバーを登録する関数
-export const addMemberToFirestore = async (name: string, role: string, managerId: string) => {
+export const addMemberToFirestore = async (name: string, role: string, managerId: string, email: string) => {
   try {
     // アイコンはとりあえずランダムで可愛い画像を割り当てるばい！
     const randomId = Math.floor(Math.random() * 1000);
@@ -98,7 +98,7 @@ export const addMemberToFirestore = async (name: string, role: string, managerId
       name: name,
       role: role,
       avatar: avatarUrl,
-      email: "",
+      email: email,
       managerId: managerId, // 👈 ここで紐づけ！
       createdAt: serverTimestamp(),
     });

@@ -23,7 +23,7 @@ export interface Log {
   isPlanned: boolean;
 }
 
-export type View = 'dashboard' | 'members' | 'editor';
+export type View = 'dashboard' | 'members' | 'editor' | 'my-history';
 
 export interface AppState {
   view: View;

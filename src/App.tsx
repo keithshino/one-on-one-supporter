@@ -7,7 +7,7 @@ import { LogEditor } from './components/LogEditor';
 import { LoginPage } from './components/LoginPage';
 import { useAuth } from './contexts/AuthContext';
 import { View, Member, Log, AppState } from './types';
-// MOCK_MEMBERS はもう削除してOK！
+import MyHistory from './components/MyHistory';
 import { getMembersFromFirestore, getLogsFromFirestore } from './lib/firestore'; 
 
 const App: React.FC = () => {
@@ -119,6 +119,11 @@ const App: React.FC = () => {
             onCancel={() => navigate('members')} 
           />
         )}
+
+        {state.view === 'my-history' && (
+          <MyHistory members={members} logs={logs} />
+        )}
+        
       </main>
     </div>
   );

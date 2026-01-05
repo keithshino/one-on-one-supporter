@@ -1,7 +1,7 @@
 // src/components/MemberView.tsx
 import React, { useState } from 'react';
 import { Member, Log } from '../types';
-import { Plus, User, Briefcase, X, Loader2, UserPlus, Cloud, Trash2, Pencil, Filter } from 'lucide-react'; // Pencil, Filter 追加
+import { Plus, User, Briefcase, X, Loader2, UserPlus, Cloud, Trash2, Pencil, Filter, Mail } from 'lucide-react'; // Pencil, Filter 追加
 import { addMemberToFirestore, deleteMemberFromFirestore, updateMemberInFirestore } from '../lib/firestore'; // update追加
 import { useAuth } from '../contexts/AuthContext'; // 👈 自分のIDを知るために必要！
 
@@ -27,7 +27,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // フォーム用データ
-  const [formData, setFormData] = useState({ id: '', name: '', role: '' });
+  const [formData, setFormData] = useState({ id: '', name: '', role: '', email: '' });
   
   // フィルター用（自分のチームだけ見るか？）
   const [showOnlyMyTeam, setShowOnlyMyTeam] = useState(false);
@@ -39,14 +39,14 @@ export const MemberView: React.FC<MemberViewProps> = ({
 
   // 追加ボタンを押した時
   const startAdd = () => {
-    setFormData({ id: '', name: '', role: '' });
+    setFormData({ id: '', name: '', role: '', email: '' });
     setMode('add');
   };
 
   // 編集ボタンを押した時
   const startEdit = (e: React.MouseEvent, member: Member) => {
     e.stopPropagation();
-    setFormData({ id: member.id, name: member.name, role: member.role });
+    setFormData({ id: member.id, name: member.name, role: member.role, email: member.email || '' });
     setMode('edit');
   };
 
@@ -59,12 +59,13 @@ export const MemberView: React.FC<MemberViewProps> = ({
       
       if (mode === 'add') {
         // 新規追加：自分のIDをmanagerIdとして紐づける！
-        await addMemberToFirestore(formData.name, formData.role, user?.uid || "");
+        await addMemberToFirestore(formData.name, formData.role, user?.uid || "", formData.email);
       } else {
         // 更新：IDを使って書き換え
         await updateMemberInFirestore(formData.id, {
           name: formData.name,
-          role: formData.role
+          role: formData.role,
+          email: formData.email // 更新時も保存
           // ここで managerId を書き換えれば「担当変更」もできるけど、今回は名前と役職のみ修正
         });
       }
@@ -195,6 +196,22 @@ export const MemberView: React.FC<MemberViewProps> = ({
                   />
                 </div>
               </div>
+
+              {/* 👇 メールアドレス入力欄を追加！ */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">メールアドレス (Googleログイン用)</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+                  <input 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full pl-10 p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="例：taro.yamada@example.com"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 mt-1">※本人がログインする時にこのアドレスを使います</p>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">役職 / ロール</label>
@@ -236,6 +253,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800">{selectedMember.name}</h2>
                   <p className="text-slate-500 font-medium">{selectedMember.role}</p>
+                  {selectedMember.email && <p className="text-xs text-slate-400 flex items-center gap-1"><Mail size={12}/> {selectedMember.email}</p>}
                 </div>
               </div>
               <button 
