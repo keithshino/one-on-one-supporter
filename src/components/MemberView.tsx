@@ -1,7 +1,12 @@
 // src/components/MemberView.tsx
 import React, { useState } from 'react';
 import { Member, Log } from '../types';
-import { Plus, User, Briefcase, UserPlus, Cloud, Trash2, Pencil, Filter, Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, Loader2, ShieldCheck } from 'lucide-react'; // アイコン大量追加！
+// 👇 必要なアイコンを全部インポート！
+import { 
+  Plus, User, Briefcase, UserPlus, Cloud, Trash2, Pencil, Filter, 
+  Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, 
+  Loader2, ShieldCheck, Check, ClipboardCopy 
+} from 'lucide-react'; 
 import { addMemberToFirestore, deleteMemberFromFirestore, updateMemberInFirestore } from '../lib/firestore';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -25,8 +30,10 @@ export const MemberView: React.FC<MemberViewProps> = ({
   const [mode, setMode] = useState<'view' | 'add' | 'edit'>('view');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOnlyMyTeam, setShowOnlyMyTeam] = useState(false);
+  
+  // コピー完了したログIDを一時的に保存するステート
+  const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
 
-  // フォーム用データ（新項目も追加！）
   const [formData, setFormData] = useState({ 
     id: '', name: '', role: '', email: '', 
     department: '', dream: '', enthusiasm: '', career: '', avatar: '',
@@ -38,12 +45,11 @@ export const MemberView: React.FC<MemberViewProps> = ({
     : members;
 
   const startAdd = () => {
-    // 新規登録時はランダムアバターをセット
     const randomAvatar = `https://picsum.photos/seed/${Math.floor(Math.random() * 1000)}/200`;
     setFormData({ 
       id: '', name: '', role: '', email: '', 
       department: '', dream: '', enthusiasm: '', career: '', avatar: randomAvatar,
-      isAdmin: false // デフォルトはfalse 
+      isAdmin: false
     });
     setMode('add');
   };
@@ -60,12 +66,11 @@ export const MemberView: React.FC<MemberViewProps> = ({
       enthusiasm: member.enthusiasm || '',
       career: member.career || '',
       avatar: member.avatar,
-      isAdmin: member.isAdmin || false // 既存の値をセット
+      isAdmin: member.isAdmin || false
     });
     setMode('edit');
   };
 
-  // アバターガチャ機能
   const refreshAvatar = () => {
     const randomId = Math.floor(Math.random() * 10000);
     setFormData({ ...formData, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomId}` });
@@ -73,7 +78,6 @@ export const MemberView: React.FC<MemberViewProps> = ({
 
   const handleSave = async () => {
     if (!formData.name) return;
-    
     try {
       setIsSubmitting(true);
       const dataToSave = {
@@ -84,23 +88,16 @@ export const MemberView: React.FC<MemberViewProps> = ({
         dream: formData.dream,
         enthusiasm: formData.enthusiasm,
         career: formData.career,
-        avatar: formData.avatar, // アバターも更新！
-        isAdmin: formData.isAdmin // 👈 これも保存！
+        avatar: formData.avatar,
+        isAdmin: formData.isAdmin
       };
 
       if (mode === 'add') {
-         // addMemberToFirestoreは引数が多いので、今回はupdateMember同様、裏側で作り直すか
-         // ここでは既存関数を使うために簡易的に呼び出す（新項目はあとでUpdateする手もあるが、
-         // 本来はadd関数を拡張すべき。今回は既存のadd関数を使いつつ、その後updateする「合わせ技」でいく！）
-         
-         // 1. 基本情報で作成
          const newId = await addMemberToFirestore(formData.name, formData.role, user?.uid || "", formData.email);
-         // 2. 残りの詳細情報をUpdate
          await updateMemberInFirestore(newId, dataToSave);
       } else {
         await updateMemberInFirestore(formData.id, dataToSave);
       }
-      
       setMode('view');
       window.location.reload();
     } catch (error) {
@@ -122,18 +119,44 @@ export const MemberView: React.FC<MemberViewProps> = ({
     }
   };
 
+  // ログの内容をコピーする関数
+  const handleCopyLog = (e: React.MouseEvent, log: Log) => {
+    e.stopPropagation();
+    if (!selectedMember) return;
+
+    const textToCopy = `
+【1on1実施報告】
+📅 日時: ${log.date}
+👤 相手: ${selectedMember.name}
+
+▼ サマリー
+${log.summary || '（サマリーなし）'}
+
+▼ Good / More
+Good: ${log.good}
+More: ${log.more}
+
+▼ Next Action
+${log.nextAction}
+`.trim();
+
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCopiedLogId(log.id);
+      setTimeout(() => setCopiedLogId(null), 2000);
+    });
+  };
+
   return (
     <div className="flex h-full gap-6">
-      {/* 左側：メンバーリスト（そのまま） */}
+      {/* 左側：メンバーリスト */}
       <div className="w-1/3 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-          <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2">
             <h2 className="font-bold text-slate-700">メンバー</h2>
             <button onClick={() => setShowOnlyMyTeam(!showOnlyMyTeam)} className={`p-1.5 rounded-md transition-all ${showOnlyMyTeam ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-200'}`} title="自分のチームのみ表示"><Filter size={16} /></button>
           </div>
           <button onClick={startAdd} className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors"><UserPlus size={20} /></button>
         </div>
-
         <div className="overflow-y-auto flex-1 p-2 space-y-2">
           {displayedMembers.map(member => (
             <button key={member.id} onClick={() => onSelectMember(member)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all group ${selectedMember?.id === member.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200 shadow-sm' : 'hover:bg-slate-50 border border-transparent'}`}>
@@ -142,9 +165,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 {user && member.managerId === user.uid && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-full"></div>}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 truncate">
+                <p className="font-bold text-slate-800 truncate flex items-center gap-1">
                   {member.name}
-                  {/* 👇 管理者バッジを表示してあげると分かりやすい！ */}
                   {member.isAdmin && <ShieldCheck size={14} className="text-blue-500" />}
                 </p>
                 <p className="text-xs text-slate-500 truncate">{member.role}</p>
@@ -186,7 +208,6 @@ export const MemberView: React.FC<MemberViewProps> = ({
                     <Camera className="absolute left-3 top-2.5 text-slate-400" size={16} />
                   </div>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">※ 画像のURLを貼るか、ガチャボタンを押してください</p>
               </div>
 
               {/* 基本情報 */}
@@ -194,24 +215,23 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 <h3 className="font-bold text-slate-700 flex items-center gap-2 pb-2 border-b border-slate-100"><User size={18}/> 基本情報</h3>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">名前</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">メールアドレス</label>
-                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">部署・チーム</label>
-                  <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} placeholder="例：開発部 アプリチーム" className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">役職</label>
-                  <input type="text" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
                 </div>
-              </div>
-
-              {/* 👇 【重要】管理者権限チェックボックス */}
-              <div className="pt-2">
+                
+                {/* 管理者権限チェックボックス */}
+                <div className="pt-2">
                   <label className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
                     <input 
                       type="checkbox" 
@@ -224,6 +244,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
                       <p className="text-xs text-slate-500">※ダッシュボードや全メンバーリストへのアクセスが可能になります。</p>
                     </div>
                   </label>
+                </div>
               </div>
 
               {/* 詳細情報 */}
@@ -231,15 +252,15 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 <h3 className="font-bold text-slate-700 flex items-center gap-2 pb-2 border-b border-slate-100"><Sparkles size={18}/> キャリア・ビジョン</h3>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">将来の夢・目標</label>
-                  <textarea value={formData.dream} onChange={(e) => setFormData({ ...formData, dream: e.target.value })} rows={2} placeholder="例：プロダクトマネージャーになって..." className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  <textarea value={formData.dream} onChange={(e) => setFormData({ ...formData, dream: e.target.value })} rows={2} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">今年度の意気込み</label>
-                  <textarea value={formData.enthusiasm} onChange={(e) => setFormData({ ...formData, enthusiasm: e.target.value })} rows={2} placeholder="例：チームの生産性を2倍にする！" className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  <textarea value={formData.enthusiasm} onChange={(e) => setFormData({ ...formData, enthusiasm: e.target.value })} rows={2} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">過去の経歴</label>
-                  <textarea value={formData.career} onChange={(e) => setFormData({ ...formData, career: e.target.value })} rows={3} placeholder="例：2020年 新卒入社 → 2022年 リーダー昇格..." className="w-full p-2 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                  <textarea value={formData.career} onChange={(e) => setFormData({ ...formData, career: e.target.value })} rows={3} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
                 </div>
               </div>
             </div>
@@ -253,7 +274,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
           </div>
         ) : selectedMember ? (
           <>
-            {/* 👇 ここが新しいプロフィールカード！ */}
+            {/* プロフィールカード */}
             <div className="mb-8 bg-gradient-to-br from-white to-blue-50/50 rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
               
@@ -263,9 +284,8 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h2 className="text-3xl font-bold text-slate-800 mb-1">
+                      <h2 className="text-3xl font-bold text-slate-800 mb-1 flex items-center gap-2">
                         {selectedMember.name}
-                        {/* 👇 管理者の場合だけ、このバッジを表示！ */}
                         {selectedMember.isAdmin && (
                           <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 font-bold flex items-center gap-1">
                             <ShieldCheck size={12}/> Admin
@@ -312,18 +332,44 @@ export const MemberView: React.FC<MemberViewProps> = ({
               </div>
             </div>
 
-            {/* ログ一覧（デザインはそのまま） */}
             <div className="space-y-4">
                <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">🕒 1on1 履歴</h3>
                {memberLogs.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">記録がありません</div>
                ) : (
                 memberLogs.map(log => (
-                  <div key={log.id} onClick={() => onSelectLog(log)} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer group">
-                    <div className="flex justify-between items-start mb-2">
+                  <div key={log.id} onClick={() => onSelectLog(log)} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer group relative">
+                    
+                    {/* 👇 ここが新しいコピーボタン！ */}
+                    <div className="absolute top-4 right-4 z-20">
+                      <button
+                        onClick={(e) => handleCopyLog(e, log)}
+                        className={`p-2 rounded-lg transition-all border shadow-sm ${
+                            copiedLogId === log.id 
+                            ? "bg-green-100 text-green-600 border-green-200" 
+                            : "bg-white text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-200"
+                        }`}
+                        title="内容をコピー"
+                      >
+                        {copiedLogId === log.id ? <Check size={16} /> : <ClipboardCopy size={16} />}
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-start mb-2 pr-12">
                        <span className="text-slate-500 font-medium flex items-center gap-2"><Cloud size={16}/> {log.date}</span>
                     </div>
-                    {log.summary ? <div className="mt-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">{log.summary}</div> : <p className="text-slate-600 line-clamp-2">{log.good}</p>}
+                    {log.summary ? (
+                       <div className="mt-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <span className="font-bold text-slate-400 text-xs block mb-1">AI Summary</span>
+                          {log.summary}
+                       </div>
+                    ) : (
+                       <p className="text-slate-600 line-clamp-2">{log.good}</p>
+                    )}
+                    <div className="mt-3 flex gap-2">
+                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">Next Action</span>
+                      <span className="text-xs text-slate-600 truncate flex-1 pt-1">{log.nextAction}</span>
+                    </div>
                   </div>
                 ))
                )}
