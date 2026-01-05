@@ -1,5 +1,5 @@
 // src/lib/firestore.ts
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { Log, Member } from "../types"; // Memberを追加
 import { MOCK_MEMBERS } from "../mockData"; // モックデータを読み込む
@@ -88,7 +88,7 @@ export const seedMembers = async () => {
 };
 
 // 👇 新しいメンバーを登録する関数
-export const addMemberToFirestore = async (name: string, role: string) => {
+export const addMemberToFirestore = async (name: string, role: string, managerId: string) => {
   try {
     // アイコンはとりあえずランダムで可愛い画像を割り当てるばい！
     const randomId = Math.floor(Math.random() * 1000);
@@ -99,13 +99,24 @@ export const addMemberToFirestore = async (name: string, role: string) => {
       role: role,
       avatar: avatarUrl,
       email: "",
-      managerId: "",
+      managerId: managerId, // 👈 ここで紐づけ！
       createdAt: serverTimestamp(),
     });
     
     return docRef.id;
   } catch (e) {
     console.error("メンバー追加エラー:", e);
+    throw e;
+  }
+};
+
+// 👇 【新規追加】メンバー情報を更新する関数（紐づけ変更もこれでやる！）
+export const updateMemberInFirestore = async (memberId: string, updates: Partial<Member>) => {
+  try {
+    const docRef = doc(db, "members", memberId);
+    await updateDoc(docRef, updates);
+  } catch (e) {
+    console.error("メンバー更新エラー:", e);
     throw e;
   }
 };
