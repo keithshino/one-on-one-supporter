@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { View } from '../types';
-import { auth } from '../firebase';
+import { auth } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, Users, LogOut, MessageSquare, History } from 'lucide-react';
 

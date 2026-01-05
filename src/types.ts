@@ -15,6 +15,7 @@ export interface Member {
   career?: string;      // 過去の経歴
   joinDate?: string;    // 入社日
   isAdmin?: boolean;   // 管理者権限
+  nextMeetingDate?: string; // 次回の1on1日程
 }
 
 export interface Log {

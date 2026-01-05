@@ -1,20 +1,26 @@
 // src/lib/firestore.ts
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { db } from "./firebase";
 import { Log, Member } from "../types"; // Memberを追加
 import { MOCK_MEMBERS } from "../mockData"; // モックデータを読み込む
 
 // ログを保存する関数（これは前回と同じ）
-export const addLogToFirestore = async (memberId: string, content: Omit<Log, 'id' | 'createdAt' | 'memberId'>) => {
+export const addLogToFirestore = async (logData: {
+  memberId: string;
+  date: string;
+  good: string;
+  more: string;
+  nextAction: string;
+  summary: string;
+  isPlanned: boolean;
+}) => {
   try {
-    const docRef = await addDoc(collection(db, "logs"), {
-      memberId,
-      ...content,
+    await addDoc(collection(db, "logs"), {
+      ...logData, // 中身を全部展開して保存
       createdAt: serverTimestamp(),
     });
-    return docRef.id;
   } catch (e) {
-    console.error("Error adding document: ", e);
+    console.error("ログ追加エラー:", e);
     throw e;
   }
 };
@@ -127,6 +133,29 @@ export const deleteMemberFromFirestore = async (memberId: string) => {
     await deleteDoc(doc(db, "members", memberId));
   } catch (e) {
     console.error("メンバー削除エラー:", e);
+    throw e;
+  }
+};
+
+// 👇 既存のログを更新する関数
+export const updateLogInFirestore = async (
+  logId: string,
+  logData: {
+    date: string;
+    good: string;
+    more: string;
+    nextAction: string;
+    summary: string;
+  }
+) => {
+  try {
+    const logRef = doc(db, "logs", logId);
+    await updateDoc(logRef, {
+      ...logData,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("ログ更新エラー:", e);
     throw e;
   }
 };

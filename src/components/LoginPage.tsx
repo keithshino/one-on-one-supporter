@@ -1,7 +1,7 @@
 // src/components/LoginPage.tsx
 import React, { useState } from 'react';
 import { signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider } from '../lib/firebase';
 import { LogIn, AlertCircle } from 'lucide-react';
 
 export const LoginPage = () => {
