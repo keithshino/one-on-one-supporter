@@ -96,35 +96,49 @@ export const seedMembers = async () => {
 };
 
 // 👇 新しいメンバーを登録する関数
-export const addMemberToFirestore = async (name: string, role: string, managerId: string, email: string) => {
+export const addMemberToFirestore = async (memberData: {
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  avatar: string;
+  managerId: string; // 👈 上司IDも保存できるように追加！
+  isAdmin: boolean; // 👈 追加！
+}) => {
   try {
-    // アイコンはとりあえずランダムで可愛い画像を割り当てるばい！
-    const randomId = Math.floor(Math.random() * 1000);
-    const avatarUrl = `https://picsum.photos/seed/${randomId}/200`;
-
-    const docRef = await addDoc(collection(db, "members"), {
-      name: name,
-      role: role,
-      avatar: avatarUrl,
-      email: email,
-      managerId: managerId, // 👈 ここで紐づけ！
+    await addDoc(collection(db, "members"), {
+      ...memberData, // 受け取ったデータをそのまま展開して保存
       createdAt: serverTimestamp(),
+      nextMeetingDate: ""
     });
-    
-    return docRef.id;
   } catch (e) {
-    console.error("メンバー追加エラー:", e);
+    console.error("Error adding document: ", e);
     throw e;
   }
 };
 
 // 👇 【新規追加】メンバー情報を更新する関数（紐づけ変更もこれでやる！）
-export const updateMemberInFirestore = async (memberId: string, updates: Partial<Member>) => {
+export const updateMemberInFirestore = async (
+  id: string, 
+  memberData: {
+    name?: string;
+    email?: string;
+    role?: string;
+    department?: string;
+    avatar?: string;
+    managerId?: string; // 👈 上司IDも更新できるように追加！
+    isAdmin?: boolean; // 👈 追加！
+    nextMeetingDate?: string;
+  }
+) => {
   try {
-    const docRef = doc(db, "members", memberId);
-    await updateDoc(docRef, updates);
+    const memberRef = doc(db, "members", id);
+    await updateDoc(memberRef, {
+      ...memberData,
+      updatedAt: serverTimestamp(),
+    });
   } catch (e) {
-    console.error("メンバー更新エラー:", e);
+    console.error("Error updating document: ", e);
     throw e;
   }
 };

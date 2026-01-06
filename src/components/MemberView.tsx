@@ -1,14 +1,8 @@
 // src/components/MemberView.tsx
 import React, { useState } from 'react';
 import { Member, Log } from '../types';
-// 👇 必要なアイコンを全部インポート！
-import { 
-  Plus, User, Briefcase, UserPlus, Cloud, Trash2, Pencil, Filter, 
-  Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, 
-  Loader2, ShieldCheck, Check, ClipboardCopy 
-} from 'lucide-react'; 
-import { addMemberToFirestore, deleteMemberFromFirestore, updateMemberInFirestore } from '../lib/firestore';
-import { useAuth } from '../contexts/AuthContext';
+import { Search, Plus, MoreVertical, Edit2, Trash2, X, Save, User, UserCheck, Shield, ShieldAlert } from 'lucide-react'; // UserCheckアイコン追加
+import { addMemberToFirestore, updateMemberInFirestore, deleteMemberFromFirestore } from '../lib/firestore';
 
 interface MemberViewProps {
   members: Member[];
@@ -17,373 +11,328 @@ interface MemberViewProps {
   onSelectMember: (member: Member) => void;
   onSelectLog: (log: Log) => void;
   onCreateLog: (memberId: string) => void;
-  onMemberAdded?: () => void;
+  isAdmin: boolean; // 👈 受け取る設定を追加
 }
 
 export const MemberView: React.FC<MemberViewProps> = ({ 
-  members, logs, memberId, onSelectMember, onSelectLog, onCreateLog, onMemberAdded 
+  members, 
+  logs, 
+  memberId, 
+  onSelectMember, 
+  onSelectLog,
+  onCreateLog,
+  isAdmin // 👈 ここで受け取る 
 }) => {
-  const { user } = useAuth();
-  const selectedMember = members.find(m => m.id === memberId);
-  const memberLogs = logs.filter(l => l.memberId === memberId);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
 
-  const [mode, setMode] = useState<'view' | 'add' | 'edit'>('view');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showOnlyMyTeam, setShowOnlyMyTeam] = useState(false);
-  
-  // コピー完了したログIDを一時的に保存するステート
-  const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({ 
-    id: '', name: '', role: '', email: '', 
-    department: '', dream: '', enthusiasm: '', career: '', avatar: '',
-    isAdmin: false 
+  // フォーム用データ
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    role: '',
+    department: '',
+    avatar: '',
+    managerId: '',
+    isAdmin: false // 👈 フォームにも追加
   });
 
-  const displayedMembers = showOnlyMyTeam && user
-    ? members.filter(m => m.managerId === user.uid)
-    : members;
+  // 検索フィルター
+  const filteredMembers = members.filter(m => 
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    m.department?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const startAdd = () => {
-    const randomAvatar = `https://picsum.photos/seed/${Math.floor(Math.random() * 1000)}/200`;
-    setFormData({ 
-      id: '', name: '', role: '', email: '', 
-      department: '', dream: '', enthusiasm: '', career: '', avatar: randomAvatar,
-      isAdmin: false
-    });
-    setMode('add');
+  // 新規作成・編集モーダルを開く
+  const openModal = (member?: Member) => {
+
+    // ⚠️ 管理者じゃないのに開こうとしたらブロック（念のため）
+    if (!isAdmin && !member) return;
+
+    if (member) {
+      setEditingMember(member);
+      setFormData({
+        name: member.name,
+        email: member.email,
+        role: member.role || '',
+        department: member.department || '',
+        avatar: member.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.random()}`,
+        managerId: member.managerId || '',
+        isAdmin: member.isAdmin || false // 既存の値をセット
+      });
+    } else {
+      setEditingMember(null);
+      setFormData({
+        name: '',
+        email: '',
+        role: '',
+        department: '',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
+        managerId: '',
+        isAdmin: false
+      });
+    }
+    setIsModalOpen(true);
   };
 
-  const startEdit = (e: React.MouseEvent, member: Member) => {
-    e.stopPropagation();
-    setFormData({ 
-      id: member.id, 
-      name: member.name, 
-      role: member.role, 
-      email: member.email || '',
-      department: member.department || '',
-      dream: member.dream || '',
-      enthusiasm: member.enthusiasm || '',
-      career: member.career || '',
-      avatar: member.avatar,
-      isAdmin: member.isAdmin || false
-    });
-    setMode('edit');
-  };
-
-  const refreshAvatar = () => {
-    const randomId = Math.floor(Math.random() * 10000);
-    setFormData({ ...formData, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomId}` });
-  };
-
+  // 保存処理
   const handleSave = async () => {
-    if (!formData.name) return;
-    try {
-      setIsSubmitting(true);
-      const dataToSave = {
-        name: formData.name,
-        role: formData.role,
-        email: formData.email,
-        department: formData.department,
-        dream: formData.dream,
-        enthusiasm: formData.enthusiasm,
-        career: formData.career,
-        avatar: formData.avatar,
-        isAdmin: formData.isAdmin
-      };
+    if (!formData.name) return alert('名前は必須です');
 
-      if (mode === 'add') {
-         const newId = await addMemberToFirestore(formData.name, formData.role, user?.uid || "", formData.email);
-         await updateMemberInFirestore(newId, dataToSave);
+    try {
+      if (editingMember) {
+        // 更新
+        await updateMemberInFirestore(editingMember.id, formData);
       } else {
-        await updateMemberInFirestore(formData.id, dataToSave);
+        // 新規作成
+        await addMemberToFirestore(formData);
       }
-      setMode('view');
-      window.location.reload();
+      setIsModalOpen(false);
     } catch (error) {
-      alert("保存に失敗した...");
-    } finally {
-      setIsSubmitting(false);
+      console.error(error);
+      alert('保存に失敗しました');
     }
   };
 
-  const handleDeleteMember = async (e: React.MouseEvent, id: string, name: string) => {
-    e.stopPropagation();
-    if (window.confirm(`本当に「${name}」さんを削除してもよか？`)) {
+  // 削除処理
+  const handleDelete = async (id: string) => {
+    if (window.confirm('本当に削除しますか？この操作は取り消せません。')) {
       try {
         await deleteMemberFromFirestore(id);
-        window.location.reload();
+        if (memberId === id) {
+          // 選択中のメンバーを削除した場合の処理（必要なら親に通知など）
+        }
       } catch (error) {
-        alert("削除に失敗した...");
+        console.error(error);
+        alert('削除に失敗しました');
       }
     }
   };
 
-  // ログの内容をコピーする関数
-  const handleCopyLog = (e: React.MouseEvent, log: Log) => {
-    e.stopPropagation();
-    if (!selectedMember) return;
-
-    const textToCopy = `
-【1on1実施報告】
-📅 日時: ${log.date}
-👤 相手: ${selectedMember.name}
-
-▼ サマリー
-${log.summary || '（サマリーなし）'}
-
-▼ Good / More
-Good: ${log.good}
-More: ${log.more}
-
-▼ Next Action
-${log.nextAction}
-`.trim();
-
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopiedLogId(log.id);
-      setTimeout(() => setCopiedLogId(null), 2000);
-    });
+  // 上司の名前を取得するヘルパー関数
+  const getManagerName = (managerId: string) => {
+    const manager = members.find(m => m.id === managerId);
+    return manager ? manager.name : '未設定';
   };
 
   return (
-    <div className="flex h-full gap-6">
-      {/* 左側：メンバーリスト */}
-      <div className="w-1/3 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-             <div className="flex items-center gap-2">
-            <h2 className="font-bold text-slate-700">メンバー</h2>
-            <button onClick={() => setShowOnlyMyTeam(!showOnlyMyTeam)} className={`p-1.5 rounded-md transition-all ${showOnlyMyTeam ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:bg-slate-200'}`} title="自分のチームのみ表示"><Filter size={16} /></button>
-          </div>
-          <button onClick={startAdd} className="text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-colors"><UserPlus size={20} /></button>
+    <div className="max-w-6xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">メンバーリスト</h1>
+          <p className="text-slate-500">チームメンバーの管理と編集を行います。</p>
         </div>
-        <div className="overflow-y-auto flex-1 p-2 space-y-2">
-          {displayedMembers.map(member => (
-            <button key={member.id} onClick={() => onSelectMember(member)} className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-all group ${selectedMember?.id === member.id ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200 shadow-sm' : 'hover:bg-slate-50 border border-transparent'}`}>
-              <div className="relative">
-                <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full bg-slate-200 object-cover" />
-                {user && member.managerId === user.uid && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 border-2 border-white rounded-full"></div>}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 truncate flex items-center gap-1">
-                  {member.name}
-                  {member.isAdmin && <ShieldCheck size={14} className="text-blue-500" />}
-                </p>
-                <p className="text-xs text-slate-500 truncate">{member.role}</p>
-              </div>
-              <div className="flex gap-1">
-                <div onClick={(e) => startEdit(e, member)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all"><Pencil size={16} /></div>
-                <div onClick={(e) => handleDeleteMember(e, member.id, member.name)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"><Trash2 size={16} /></div>
-              </div>
-            </button>
-          ))}
-        </div>
+        
+        {/* 👇 管理者(Admin)の時だけ「メンバー追加ボタン」を表示！ */}
+        {isAdmin && (
+          <button 
+            onClick={() => openModal()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus size={20} /> メンバーを追加
+          </button>
+        )}
       </div>
 
-      {/* 右側：詳細 or フォーム */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-y-auto">
-        {mode !== 'view' ? (
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-              {mode === 'add' ? <UserPlus className="text-blue-500" /> : <Pencil className="text-blue-500" />}
-              {mode === 'add' ? 'プロフィール作成' : 'プロフィール編集'}
-            </h2>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex items-center gap-2">
+        <Search className="text-slate-400" size={20} />
+        <input 
+          type="text" 
+          placeholder="名前や部署で検索..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 outline-none text-slate-700 placeholder:text-slate-400"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredMembers.map(member => (
+          <div key={member.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative">
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* アバター設定エリア */}
-              <div className="col-span-full flex flex-col items-center justify-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200 mb-2">
-                <img src={formData.avatar} alt="Avatar Preview" className="w-24 h-24 rounded-full bg-white shadow-sm object-cover mb-4" />
-                <div className="flex gap-3">
-                  <button type="button" onClick={refreshAvatar} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
-                    <RefreshCw size={16} /> ガチャで変更
-                  </button>
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      placeholder="画像URLを直接入力"
-                      value={formData.avatar}
-                      onChange={(e) => setFormData({...formData, avatar: e.target.value})}
-                      className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm w-64 outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <Camera className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            {/* 👇 管理者(Admin)の時だけ「編集・削除ボタン」を表示！ */}
+            {isAdmin && (
+              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); openModal(member); }}
+                  className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDelete(member.id); }}
+                  className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-4 mb-4 cursor-pointer" onClick={() => onSelectMember(member)}>
+              <div className="relative">
+                <img src={member.avatar} alt={member.name} className="w-14 h-14 rounded-full bg-slate-100 border border-slate-100" />
+                {/* 管理者にはバッジをつける */}
+                {member.isAdmin && (
+                  <div className="absolute -top-1 -right-1 bg-yellow-400 text-white p-1 rounded-full border-2 border-white" title="管理者">
+                    <Shield size={10} fill="currentColor" />
                   </div>
-                </div>
+                )}
               </div>
-
-              {/* 基本情報 */}
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-700 flex items-center gap-2 pb-2 border-b border-slate-100"><User size={18}/> 基本情報</h3>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">名前</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">メールアドレス</label>
-                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">部署・チーム</label>
-                  <input type="text" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">役職</label>
-                  <input type="text" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full p-2 border border-slate-200 rounded-lg" />
-                </div>
-                
-                {/* 管理者権限チェックボックス */}
-                <div className="pt-2">
-                  <label className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={formData.isAdmin} 
-                      onChange={(e) => setFormData({ ...formData, isAdmin: e.target.checked })}
-                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" 
-                    />
-                    <div>
-                      <p className="font-bold text-slate-700 text-sm flex items-center gap-1"><ShieldCheck size={16} /> 管理者権限を付与する</p>
-                      <p className="text-xs text-slate-500">※ダッシュボードや全メンバーリストへのアクセスが可能になります。</p>
-                    </div>
-                  </label>
-                </div>
-              </div>
-
-              {/* 詳細情報 */}
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-700 flex items-center gap-2 pb-2 border-b border-slate-100"><Sparkles size={18}/> キャリア・ビジョン</h3>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">将来の夢・目標</label>
-                  <textarea value={formData.dream} onChange={(e) => setFormData({ ...formData, dream: e.target.value })} rows={2} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">今年度の意気込み</label>
-                  <textarea value={formData.enthusiasm} onChange={(e) => setFormData({ ...formData, enthusiasm: e.target.value })} rows={2} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">過去の経歴</label>
-                  <textarea value={formData.career} onChange={(e) => setFormData({ ...formData, career: e.target.value })} rows={3} className="w-full p-2 border border-slate-200 rounded-lg resize-none" />
-                </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                  {member.name}
+                </h3>
+                <p className="text-sm text-slate-500 font-medium">{member.department || '部署未設定'}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{member.role}</p> 
               </div>
             </div>
 
-            <div className="flex gap-3">
-              <button onClick={() => setMode('view')} className="flex-1 py-3 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium">キャンセル</button>
-              <button onClick={handleSave} disabled={isSubmitting} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex justify-center items-center gap-2">
-                {isSubmitting ? <Loader2 className="animate-spin" /> : "保存する"}
+            <div className="border-t border-slate-50 pt-3 flex items-center justify-between text-xs text-slate-500">
+              <div className="flex items-center gap-1">
+                <UserCheck size={14} className="text-slate-400"/>
+                上司: <span className="font-medium text-slate-700">{getManagerName(member.managerId || '')}</span>
+              </div>
+              <button 
+                onClick={() => onCreateLog(member.id)}
+                className="text-blue-600 font-bold hover:underline"
+              >
+                ログ記録
               </button>
             </div>
           </div>
-        ) : selectedMember ? (
-          <>
-            {/* プロフィールカード */}
-            <div className="mb-8 bg-gradient-to-br from-white to-blue-50/50 rounded-2xl p-6 border border-slate-100 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
-              
-              <div className="flex items-start gap-6 relative z-10">
-                <img src={selectedMember.avatar} alt={selectedMember.name} className="w-24 h-24 rounded-2xl shadow-md object-cover bg-white" />
-                
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-3xl font-bold text-slate-800 mb-1 flex items-center gap-2">
-                        {selectedMember.name}
-                        {selectedMember.isAdmin && (
-                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-200 font-bold flex items-center gap-1">
-                            <ShieldCheck size={12}/> Admin
-                          </span>
-                        )}
-                      </h2>
-                      <div className="flex items-center gap-3 text-slate-600 mb-4">
-                        <span className="flex items-center gap-1 text-sm bg-white px-2 py-1 rounded border border-slate-200"><Briefcase size={14}/> {selectedMember.role}</span>
-                        {selectedMember.department && <span className="flex items-center gap-1 text-sm bg-white px-2 py-1 rounded border border-slate-200"><Building2 size={14}/> {selectedMember.department}</span>}
-                      </div>
-                    </div>
-                    <button onClick={() => onCreateLog(selectedMember.id)} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-blue-200 font-bold flex items-center gap-2 transition-transform hover:scale-105 active:scale-95">
-                      <Plus size={20} /> 1on1記録
-                    </button>
-                  </div>
+        ))}
+      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                    {selectedMember.dream && (
-                      <div className="bg-white/80 p-3 rounded-lg border border-purple-100">
-                        <p className="text-xs font-bold text-purple-600 mb-1 flex items-center gap-1"><Sparkles size={12}/> 将来の夢</p>
-                        <p className="text-sm text-slate-700">{selectedMember.dream}</p>
-                      </div>
-                    )}
-                    {selectedMember.enthusiasm && (
-                      <div className="bg-white/80 p-3 rounded-lg border border-orange-100">
-                        <p className="text-xs font-bold text-orange-600 mb-1 flex items-center gap-1"><Flag size={12}/> 今年度の意気込み</p>
-                        <p className="text-sm text-slate-700">{selectedMember.enthusiasm}</p>
-                      </div>
-                    )}
-                    {selectedMember.career && (
-                      <div className="bg-white/80 p-3 rounded-lg border border-blue-100">
-                        <p className="text-xs font-bold text-blue-600 mb-1 flex items-center gap-1"><ScrollText size={12}/> 経歴</p>
-                        <p className="text-sm text-slate-700 line-clamp-3" title={selectedMember.career}>{selectedMember.career}</p>
-                      </div>
-                    )}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="font-bold text-xl text-slate-800">
+                {editingMember ? 'メンバー編集' : '新規メンバー追加'}
+              </h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">お名前 <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="例：山田 太郎"
+                />
+              </div>
+
+              {/* 👇 管理者権限の付与チェックボックス */}
+              <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="checkbox"
+                    checked={formData.isAdmin}
+                    onChange={(e) => setFormData({...formData, isAdmin: e.target.checked})}
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="block font-bold text-slate-800 flex items-center gap-2">
+                      <ShieldAlert size={16} className="text-yellow-600"/>
+                      管理者権限 (Admin) を付与する
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      ONにすると、全メンバーの閲覧・編集・削除が可能になります。
+                    </span>
                   </div>
-                  
-                  {selectedMember.email && (
-                     <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-                        <Mail size={12}/> {selectedMember.email}
-                     </div>
-                  )}
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">部署</label>
+                  <input 
+                    type="text" 
+                    value={formData.department}
+                    onChange={(e) => setFormData({...formData, department: e.target.value})}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="例：開発部"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">役職</label>
+                  <input 
+                    type="text" 
+                    value={formData.role}
+                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="例：リーダー"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
+                  <UserCheck size={16} className="text-blue-500"/> 上司 (マネージャー)
+                </label>
+                <select
+                  value={formData.managerId}
+                  onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                >
+                  <option value="">(上司なし)</option>
+                  {members
+                    .filter(m => m.id !== editingMember?.id)
+                    .map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} {m.department ? `(${m.department})` : ''}
+                      </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">メールアドレス</label>
+                <input 
+                  type="email" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="email@example.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">アイコン画像URL</label>
+                <div className="flex gap-2">
+                  <img src={formData.avatar} className="w-10 h-10 rounded-full border bg-slate-50" />
+                  <input 
+                    type="text" 
+                    value={formData.avatar}
+                    onChange={(e) => setFormData({...formData, avatar: e.target.value})}
+                    className="flex-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-               <h3 className="text-lg font-bold text-slate-700 flex items-center gap-2">🕒 1on1 履歴</h3>
-               {memberLogs.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">記録がありません</div>
-               ) : (
-                memberLogs.map(log => (
-                  <div key={log.id} onClick={() => onSelectLog(log)} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md transition-all cursor-pointer group relative">
-                    
-                    {/* 👇 ここが新しいコピーボタン！ */}
-                    <div className="absolute top-4 right-4 z-20">
-                      <button
-                        onClick={(e) => handleCopyLog(e, log)}
-                        className={`p-2 rounded-lg transition-all border shadow-sm ${
-                            copiedLogId === log.id 
-                            ? "bg-green-100 text-green-600 border-green-200" 
-                            : "bg-white text-slate-400 border-slate-200 hover:text-blue-600 hover:border-blue-200"
-                        }`}
-                        title="内容をコピー"
-                      >
-                        {copiedLogId === log.id ? <Check size={16} /> : <ClipboardCopy size={16} />}
-                      </button>
-                    </div>
-
-                    <div className="flex justify-between items-start mb-2 pr-12">
-                       <span className="text-slate-500 font-medium flex items-center gap-2"><Cloud size={16}/> {log.date}</span>
-                    </div>
-                    {log.summary ? (
-                       <div className="mt-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                          <span className="font-bold text-slate-400 text-xs block mb-1">AI Summary</span>
-                          {log.summary}
-                       </div>
-                    ) : (
-                       <p className="text-slate-600 line-clamp-2">{log.good}</p>
-                    )}
-                    <div className="mt-3 flex gap-2">
-                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">Next Action</span>
-                      <span className="text-xs text-slate-600 truncate flex-1 pt-1">{log.nextAction}</span>
-                    </div>
-                  </div>
-                ))
-               )}
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-5 py-2.5 text-slate-600 font-bold hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                キャンセル
+              </button>
+              <button 
+                onClick={handleSave}
+                className="px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2"
+              >
+                <Save size={18} /> 保存する
+              </button>
             </div>
-          </>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-slate-400">
-            <User size={48} className="mb-4 text-slate-300" />
-            <p>メンバーを選択してください</p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
-
-export default MemberView;

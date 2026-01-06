@@ -125,6 +125,7 @@ const App: React.FC = () => {
             onSelectMember={handleSelectMember}
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog}
+            isAdmin={isAdmin} // 👈 これを追加！(切符を渡すイメージ)
           />
         )}
 
