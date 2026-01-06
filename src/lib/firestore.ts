@@ -104,6 +104,11 @@ export const addMemberToFirestore = async (memberData: {
   avatar: string;
   managerId: string; // 👈 上司IDも保存できるように追加！
   isAdmin: boolean; // 👈 追加！
+  // 👇 ここも追加しておくと安心
+  joinDate?: string;
+  dream?: string;
+  enthusiasm?: string;
+  career?: string;
 }) => {
   try {
     await addDoc(collection(db, "members"), {
@@ -129,6 +134,11 @@ export const updateMemberInFirestore = async (
     managerId?: string; // 👈 上司IDも更新できるように追加！
     isAdmin?: boolean; // 👈 追加！
     nextMeetingDate?: string;
+    // 👇 これらを受け取れるように修正！
+    joinDate?: string;
+    dream?: string;
+    enthusiasm?: string;
+    career?: string;
   }
 ) => {
   try {

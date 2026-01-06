@@ -50,8 +50,10 @@ const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
         joinDate: formData.joinDate // 👈 入社年月も保存！
       });
       
+      // 👇 【修正】リロードをやめて、完了メッセージを出す
+      alert("プロフィールを更新しました！✨"); 
       setIsEditing(false);
-      window.location.reload(); // 反映のためリロード
+      // window.location.reload(); // 👈 削除（Firestoreが自動で画面更新してくれるから不要！）
     } catch (error) {
       alert("保存に失敗した...");
     } finally {
