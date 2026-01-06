@@ -1,9 +1,9 @@
 // src/components/LogEditor.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // 👈 useRefを追加
 import { Member, Log, Mood } from '../types';
-import { ArrowLeft, Save, Sparkles, Loader2, Calendar, Sun, Cloud, CloudRain, Zap } from 'lucide-react';
+import { ArrowLeft, Save, Sparkles, Loader2, Calendar, Sun, Cloud, CloudRain, Zap, Upload } from 'lucide-react'; // 👈 Uploadを追加
 import { addLogToFirestore, updateMemberInFirestore, updateLogInFirestore } from '../lib/firestore';
-import { generateSummary } from '../lib/geminiService';
+import { generateSummary, generateLogFromTranscript } from '../lib/geminiService';
 
 interface LogEditorProps {
   member: Member;
@@ -13,6 +13,9 @@ interface LogEditorProps {
 }
 
 export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack, onSave }) => {
+  // 👇 ファイル操作のためのRef（これがないと動かない！）
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     date: initialLog ? initialLog.date : new Date().toISOString().split('T')[0],
     good: initialLog ? initialLog.good : '',
@@ -20,7 +23,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
     nextAction: initialLog ? initialLog.nextAction : '',
     summary: initialLog ? initialLog.summary || '' : '',
     nextMeetingDate: '',
-    mood: (initialLog?.mood || 'sunny') as Mood // 👇 ムードの初期値
+    mood: (initialLog?.mood || 'sunny') as Mood
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -71,7 +74,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
         more: formData.more,
         nextAction: formData.nextAction,
         summary: formData.summary,
-        mood: formData.mood // 👈 ムードも保存！
+        mood: formData.mood
       };
 
       if (initialLog) {
@@ -99,7 +102,41 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
     }
   };
 
-  // ムード選択ボタンのコンポーネント（内部定義）
+  // ファイル読み込み処理
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.txt') && !file.name.endsWith('.vtt')) {
+      alert('.txt または .vtt ファイルを選択してください');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const text = await file.text();
+      
+      const aiResponse = await generateLogFromTranscript(text);
+
+      setFormData(prev => ({
+        ...prev,
+        summary: aiResponse.summary,
+        good: aiResponse.good,
+        more: aiResponse.more,
+        nextAction: aiResponse.nextAction,
+        mood: aiResponse.mood,
+      }));
+
+      alert("AIが議事録を生成しました！✨");
+    } catch (error) {
+      console.error(error);
+      alert("AI生成に失敗しました... もう一度試してみてください。");
+    } finally {
+      setIsGenerating(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const MoodButton = ({ type, icon: Icon, label, color }: { type: Mood, icon: any, label: string, color: string }) => (
     <button
       onClick={() => setFormData({ ...formData, mood: type })}
@@ -116,6 +153,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* ヘッダー */}
       <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
         <button 
           onClick={onBack}
@@ -135,19 +173,41 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
       <div className="flex-1 overflow-y-auto p-6 md:p-8">
         <div className="max-w-3xl mx-auto space-y-8">
           
+          {/* 日付・ファイル読み込み・ムード */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-6">
+              
+              {/* 日付とAI読み込みボタン */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">実施日</label>
-                <input 
-                  type="date" 
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
-                />
+                <label className="block text-sm font-bold text-slate-700 mb-2">実施日 & 自動生成</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="date" 
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="flex-1 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                  />
+                  {/* 👇 ここに追加！ファイル読み込みボタン */}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".txt,.vtt"
+                    onChange={handleFileUpload} 
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isGenerating}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70 whitespace-nowrap"
+                    title="文字起こしファイル(.txt, .vtt)から自動入力"
+                  >
+                    {isGenerating ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                    <span className="hidden sm:inline">自動生成</span>
+                  </button>
+                </div>
               </div>
 
-              {/* 👇 新登場！ムード選択エリア */}
+              {/* ムード選択 */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">今回の雰囲気 (Mood)</label>
                 <div className="flex gap-3">
@@ -159,6 +219,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
               </div>
             </div>
             
+            {/* 次回の予定（新規作成時のみ） */}
             {!initialLog && (
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
@@ -175,7 +236,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
             )}
           </div>
 
-          {/* Good / More / Next Action エリア */}
+          {/* Good / More / Next Action */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-bold text-green-700 mb-2">Good (良かったこと)</label>
@@ -183,6 +244,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
                 value={formData.good}
                 onChange={(e) => setFormData({ ...formData, good: e.target.value })}
                 className="w-full h-32 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none resize-none transition-shadow"
+                placeholder="手入力、または自動生成"
               />
             </div>
 
@@ -218,14 +280,14 @@ export const LogEditor: React.FC<LogEditorProps> = ({ member, initialLog, onBack
                 className="text-sm px-5 py-2 rounded-lg font-bold text-white bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 shadow-md hover:shadow-lg transform transition-all hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
               >
                 {isGenerating ? <Loader2 size={16} className="animate-spin text-white" /> : <Sparkles size={16} className="text-white" />}
-                AIで要約を生成
+                手動入力の内容から要約
               </button>
             </div>
             <textarea 
               value={formData.summary}
               onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
               className="w-full h-24 p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-yellow-400 outline-none resize-none transition-shadow text-sm leading-relaxed"
-              placeholder="AIボタンを押すと、ここに要約が生成されます..."
+              placeholder="ファイル読込で自動生成、または上のボタンで要約..."
             />
           </div>
 
