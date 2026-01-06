@@ -15,6 +15,7 @@ import MyProfile from './components/MyProfile';
 import { Member, Log, View } from './types';
 import { db } from './lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { MemberDetail } from './components/MemberDetail';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
@@ -96,6 +97,7 @@ const App: React.FC = () => {
 
   const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
+    navigate('member-detail'); // 👈 ここを変更！
   };
 
   const handleCreateLog = (memberId: string) => {
@@ -145,7 +147,8 @@ const App: React.FC = () => {
         
         {state.view === 'members' && (
           <MemberView 
-            members={visibleMembers} 
+            members={visibleMembers}
+            allMembers={members}     // 👈 【追加】Firestoreから取ったそのままの全リスト！ 
             logs={visibleLogs}
             memberId={selectedMember?.id || null}
             onSelectMember={handleSelectMember}
@@ -155,6 +158,17 @@ const App: React.FC = () => {
             isAdmin={isAdmin}
             viewScope={adminViewScope}
             onToggleScope={setAdminViewScope}
+          />
+        )}
+
+        {/* 👇 3. 詳細画面の表示を追加！ */}
+        {state.view === 'member-detail' && selectedMember && (
+          <MemberDetail 
+            member={selectedMember}
+            allMembers={members} // 上司名表示用
+            logs={logs}          // 履歴表示用
+            onBack={() => navigate('members')}
+            onEditLog={handleSelectLog}
           />
         )}
 

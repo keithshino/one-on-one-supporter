@@ -6,6 +6,7 @@ import { addMemberToFirestore, updateMemberInFirestore, deleteMemberFromFirestor
 
 interface MemberViewProps {
   members: Member[];
+  allMembers: Member[]; // 👈 【追加】これは「名前検索用の全社員データ」
   logs: Log[];
   memberId: string | null;
   onSelectMember: (member: Member) => void;
@@ -18,7 +19,8 @@ interface MemberViewProps {
 }
 
 export const MemberView: React.FC<MemberViewProps> = ({ 
-  members, 
+  members,
+  allMembers, // 👈 受け取る！ 
   logs, 
   memberId, 
   onSelectMember, 
@@ -115,9 +117,9 @@ export const MemberView: React.FC<MemberViewProps> = ({
     }
   };
 
-  // 上司の名前を取得するヘルパー関数
+  // 👇 【重要修正】名前を探すときは members ではなく allMembers から探す！
   const getManagerName = (managerId: string) => {
-    const manager = members.find(m => m.id === managerId);
+    const manager = allMembers.find(m => m.id === managerId);
     return manager ? manager.name : '未設定';
   };
 
@@ -307,7 +309,7 @@ export const MemberView: React.FC<MemberViewProps> = ({
                   className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                 >
                   <option value="">(上司なし)</option>
-                  {members
+                  {allMembers
                     .filter(m => m.id !== editingMember?.id)
                     .map(m => (
                       <option key={m.id} value={m.id}>
