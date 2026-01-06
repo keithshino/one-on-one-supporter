@@ -1,25 +1,25 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './lib/firebase';
 import { useAuth } from './contexts/AuthContext';
 
-// 👇 修正1：波括弧 { } をしっかりつける！
+// コンポーネントのインポート
 import { LoginPage } from './components/LoginPage';
 import { MemberView } from './components/MemberView';
 import { LogEditor } from './components/LogEditor';
-
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MyHistory from './components/MyHistory';
 import MyProfile from './components/MyProfile';
 
+// 型とFirebase関連
 import { Member, Log, View } from './types';
 import { db } from './lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
+  
+  // 画面遷移やデータ保持用のState
   const [state, setState] = useState<{ view: View }>({ view: 'dashboard' });
   const [members, setMembers] = useState<Member[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
@@ -27,6 +27,10 @@ const App: React.FC = () => {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
 
+  // 👇 管理者用の表示切り替えスイッチ ('all'=全体, 'team'=自チーム)
+  const [adminViewScope, setAdminViewScope] = useState<'all' | 'team'>('all');
+
+  // データ取得 (useEffect)
   useEffect(() => {
     if (!user) return;
 
@@ -47,30 +51,42 @@ const App: React.FC = () => {
     };
   }, [user]);
 
+  // 権限チェックロジック
   const currentUser = members.find(m => m.email === user?.email);
   const isAdmin = currentUser?.isAdmin === true;
-  //const isAdmin = false;
 
-  // 👇 【重要】ここで表示するメンバーをフィルターする！
+  // 👇 マネージャー判定：誰かの上司になっているか？
+  const isManager = React.useMemo(() => {
+    if (!currentUser) return false;
+    return members.some(m => m.managerId === currentUser.id);
+  }, [members, currentUser]);
+
+  // 👇 表示するメンバーのフィルターロジック
   const visibleMembers = React.useMemo(() => {
-    if (!currentUser) return []; // 自分の情報がまだロードされてなければ空
-    if (isAdmin) return members; // 管理者なら全員表示
-    
-    // 一般マネージャーなら、自分のIDが managerId に入っているメンバーだけ
-    return members.filter(m => m.managerId === currentUser.id);
-  }, [members, currentUser, isAdmin]);
+    if (!currentUser) return [];
 
-  // 👇 ログも、見えているメンバーのものだけに絞る！
+    // 1. 管理者の場合
+    if (isAdmin) {
+      if (adminViewScope === 'all') return members; // 全員表示
+      return members.filter(m => m.managerId === currentUser.id); // 自チームのみ
+    }
+
+    // 2. マネージャーの場合
+    if (isManager) {
+      return members.filter(m => m.managerId === currentUser.id); // 自チームのみ
+    }
+
+    // 3. 一般メンバーの場合
+    return []; // サイドバーで隠されるけど、念のため空配列
+  }, [members, currentUser, isAdmin, isManager, adminViewScope]);
+
+  // 👇 ログのフィルター
   const visibleLogs = React.useMemo(() => {
-    // 見えているメンバーのIDリストを作る
     const visibleMemberIds = new Set(visibleMembers.map(m => m.id));
-    // そのメンバーのログだけ残す
     return logs.filter(l => visibleMemberIds.has(l.memberId));
   }, [logs, visibleMembers]);
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
-  if (!user) return <LoginPage />;
-
+  // 画面遷移ヘルパー関数
   const navigate = (view: View) => {
     setState({ view });
     if (view !== 'editor') {
@@ -91,7 +107,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 👇 これをダッシュボードにも渡す必要がある！
   const handleSelectLog = (log: Log) => {
     const member = members.find(m => m.id === log.memberId);
     if (member) {
@@ -101,31 +116,45 @@ const App: React.FC = () => {
     }
   };
 
+  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  if (!user) return <LoginPage />;
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar currentView={state.view} onNavigate={navigate} isAdmin={isAdmin} />
+      {/* 👇 修正：Sidebarに isManager を渡すのを忘れずに！ */}
+      <Sidebar 
+        currentView={state.view} 
+        onNavigate={navigate} 
+        isAdmin={isAdmin} 
+        isManager={isManager} 
+      />
       
       <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
         {state.view === 'dashboard' && (
           <Dashboard 
-            members={visibleMembers} // 👈 フィルター済みのメンバーを渡す
-            logs={visibleLogs}       // 👈 フィルター済みのログを渡す
-            // 👇 修正2：ここ！この行を追加しないとダッシュボードが怒る！
+            members={visibleMembers} 
+            logs={visibleLogs} 
             onSelectLog={handleSelectLog}
-            onCreateLog={handleCreateLog} 
-            //currentUserId={currentUser?.id} // 👈 ログイン中のユーザーIDを渡す
+            onCreateLog={handleCreateLog}
+            // 👇 修正：切り替えスイッチ情報を渡す！
+            isAdmin={isAdmin}
+            viewScope={adminViewScope}
+            onToggleScope={setAdminViewScope}
           />
         )}
         
         {state.view === 'members' && (
           <MemberView 
-            members={visibleMembers} // 👈 フィルター済みのメンバーを渡す
-            logs={visibleLogs}       // 👈 フィルター済みのログを渡す
+            members={visibleMembers} 
+            logs={visibleLogs}
             memberId={selectedMember?.id || null}
             onSelectMember={handleSelectMember}
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog}
-            isAdmin={isAdmin} // 👈 これを追加！(切符を渡すイメージ)
+            // 👇 修正：MemberViewにもスイッチ情報を渡す！
+            isAdmin={isAdmin}
+            viewScope={adminViewScope}
+            onToggleScope={setAdminViewScope}
           />
         )}
 

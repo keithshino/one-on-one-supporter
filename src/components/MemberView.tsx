@@ -12,6 +12,9 @@ interface MemberViewProps {
   onSelectLog: (log: Log) => void;
   onCreateLog: (memberId: string) => void;
   isAdmin: boolean; // 👈 受け取る設定を追加
+  // 👇 追加
+  viewScope: 'all' | 'team';
+  onToggleScope: (scope: 'all' | 'team') => void;
 }
 
 export const MemberView: React.FC<MemberViewProps> = ({ 
@@ -21,7 +24,9 @@ export const MemberView: React.FC<MemberViewProps> = ({
   onSelectMember, 
   onSelectLog,
   onCreateLog,
-  isAdmin // 👈 ここで受け取る 
+  isAdmin,
+  viewScope, 
+  onToggleScope // 👈 受け取る 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,15 +129,39 @@ export const MemberView: React.FC<MemberViewProps> = ({
           <p className="text-slate-500">チームメンバーの管理と編集を行います。</p>
         </div>
         
-        {/* 👇 管理者(Admin)の時だけ「メンバー追加ボタン」を表示！ */}
-        {isAdmin && (
-          <button 
-            onClick={() => openModal()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <Plus size={20} /> メンバーを追加
-          </button>
-        )}
+        <div className="flex gap-4 items-center">
+          {/* 👇 ここ！管理者(Admin)の時だけ表示する切り替えスイッチを追加！ */}
+          {isAdmin && (
+            <div className="bg-white border border-slate-200 p-1 rounded-lg flex text-sm font-bold shadow-sm">
+              <button
+                onClick={() => onToggleScope('all')}
+                className={`px-3 py-1.5 rounded-md transition-all ${
+                  viewScope === 'all' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                全社
+              </button>
+              <button
+                onClick={() => onToggleScope('team')}
+                className={`px-3 py-1.5 rounded-md transition-all ${
+                  viewScope === 'team' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                自チーム
+              </button>
+            </div>
+          )}
+
+          {/* メンバー追加ボタン（管理者の時だけ） */}
+          {isAdmin && (
+            <button 
+              onClick={() => openModal()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Plus size={20} /> 追加
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex items-center gap-2">
@@ -150,7 +179,6 @@ export const MemberView: React.FC<MemberViewProps> = ({
         {filteredMembers.map(member => (
           <div key={member.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative">
             
-            {/* 👇 管理者(Admin)の時だけ「編集・削除ボタン」を表示！ */}
             {isAdmin && (
               <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
@@ -171,7 +199,6 @@ export const MemberView: React.FC<MemberViewProps> = ({
             <div className="flex items-center gap-4 mb-4 cursor-pointer" onClick={() => onSelectMember(member)}>
               <div className="relative">
                 <img src={member.avatar} alt={member.name} className="w-14 h-14 rounded-full bg-slate-100 border border-slate-100" />
-                {/* 管理者にはバッジをつける */}
                 {member.isAdmin && (
                   <div className="absolute -top-1 -right-1 bg-yellow-400 text-white p-1 rounded-full border-2 border-white" title="管理者">
                     <Shield size={10} fill="currentColor" />
@@ -227,7 +254,6 @@ export const MemberView: React.FC<MemberViewProps> = ({
                 />
               </div>
 
-              {/* 👇 管理者権限の付与チェックボックス */}
               <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input 

@@ -8,7 +8,10 @@ interface DashboardProps {
   logs: Log[];
   onSelectLog: (log: Log) => void;
   onCreateLog: (memberId: string) => void;
-  // currentUserId はもう不要なので削除！
+  // 👇 追加
+  isAdmin: boolean;
+  viewScope: 'all' | 'team';
+  onToggleScope: (scope: 'all' | 'team') => void;
 }
 
 const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
@@ -21,8 +24,12 @@ const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
   }
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCreateLog }) => {
-  const totalMembers = members.length;
+const Dashboard: React.FC<DashboardProps> = ({ 
+  members, logs, onSelectLog, onCreateLog, 
+  isAdmin, viewScope, onToggleScope // 👈 受け取る 
+}) => {
+  
+    const totalMembers = members.length;
   const currentMonth = new Date().toISOString().slice(0, 7);
   const thisMonthLogs = logs.filter(log => log.date.startsWith(currentMonth));
   const logsCount = thisMonthLogs.length;
@@ -44,6 +51,28 @@ const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCre
           <h1 className="text-3xl font-bold text-slate-800">ダッシュボード</h1>
           <p className="text-slate-500 mt-2">チームの状況をリアルタイムで確認できます。</p>
         </div>
+
+        {/* 👇 管理者のみ表示する切り替えスイッチ */}
+        {isAdmin && (
+          <div className="bg-white border border-slate-200 p-1 rounded-lg flex text-sm font-bold shadow-sm">
+            <button
+              onClick={() => onToggleScope('all')}
+              className={`px-4 py-2 rounded-md transition-all ${
+                viewScope === 'all' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              全社
+            </button>
+            <button
+              onClick={() => onToggleScope('team')}
+              className={`px-4 py-2 rounded-md transition-all ${
+                viewScope === 'team' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              自分のチーム
+            </button>
+          </div>
+        )}
         
         <div className="text-right hidden md:block">
           <p className="text-sm font-bold text-slate-600">{new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
