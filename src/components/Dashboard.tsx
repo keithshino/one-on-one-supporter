@@ -1,17 +1,14 @@
 // src/components/Dashboard.tsx
 import React from 'react';
 import { Member, Log, Mood } from '../types';
-import { Users, FileText, Calendar, TrendingUp, ArrowRight, AlertCircle, Cloud, UserPlus } from 'lucide-react';
-import { writeBatch, collection, getDocs, doc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { Users, FileText, Calendar, TrendingUp, ArrowRight, AlertCircle, Cloud } from 'lucide-react';
 
 interface DashboardProps {
   members: Member[];
   logs: Log[];
   onSelectLog: (log: Log) => void;
-  // 👇 新しい切符を受け取る口を追加！
   onCreateLog: (memberId: string) => void;
-  currentUserId?: string;
+  // currentUserId はもう不要なので削除！
 }
 
 const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
@@ -24,8 +21,7 @@ const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
   }
 };
 
-// 👇 ここで onCreateLog を受け取る！
-const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCreateLog, currentUserId }) => {
+const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCreateLog }) => {
   const totalMembers = members.length;
   const currentMonth = new Date().toISOString().slice(0, 7);
   const thisMonthLogs = logs.filter(log => log.date.startsWith(currentMonth));
@@ -41,36 +37,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCre
 
   const recentLogs = logs.slice(0, 5);
 
-  // 🧪 全員を自分の部下にする関数（移行用）
-  const assignAllToMe = async () => {
-    if (!currentUserId) {
-      alert("エラー：あなたのユーザーIDが見つかりません。ログインし直してください。");
-      return;
-    }
-    if (!window.confirm(`現在登録されている ${members.length}名のメンバーを、あなたのチーム（部下）として登録しますか？`)) return;
-
-    try {
-      const batch = writeBatch(db);
-      const membersSnapshot = await getDocs(collection(db, "members"));
-      
-      let count = 0;
-      membersSnapshot.docs.forEach((d) => {
-        // 自分自身じゃなければ更新
-        if (d.id !== currentUserId) {
-          const ref = doc(db, "members", d.id);
-          batch.update(ref, { managerId: currentUserId });
-          count++;
-        }
-      });
-
-      await batch.commit();
-      alert(`完了！${count}名をあなたのチームに迎え入れました！🎉`);
-    } catch (error) {
-      console.error(error);
-      alert("更新に失敗しました...");
-    }
-  };
-
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
@@ -78,17 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCre
           <h1 className="text-3xl font-bold text-slate-800">ダッシュボード</h1>
           <p className="text-slate-500 mt-2">チームの状況をリアルタイムで確認できます。</p>
         </div>
-
-        {/* 👇 秘密のチーム結成ボタン */}
-        <div className="flex gap-2">
-           <button 
-            onClick={assignAllToMe}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-indigo-700 shadow-sm transition-all"
-          >
-            <UserPlus size={16} /> 全員を自分の部下にする
-          </button>
-        </div>
-
+        
         <div className="text-right hidden md:block">
           <p className="text-sm font-bold text-slate-600">{new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
           <p className="text-xs text-slate-400">現在</p>
@@ -143,7 +99,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCre
               upcomingMeetings.map(member => (
                 <div 
                   key={member.id} 
-                  // 👇 ここ！クリックしたら新規ログ作成へ！
                   onClick={() => onCreateLog(member.id)}
                   className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
                 >
@@ -155,7 +110,6 @@ const Dashboard: React.FC<DashboardProps> = ({ members, logs, onSelectLog, onCre
                     <p className="font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{member.name}</p>
                     <p className="text-xs text-slate-500 truncate">{member.department || '部署未設定'}</p>
                   </div>
-                  {/* ホバー時に出る矢印 */}
                   <div className="text-slate-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0">
                     <ArrowRight size={20} />
                   </div>

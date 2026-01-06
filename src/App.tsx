@@ -113,7 +113,7 @@ const App: React.FC = () => {
             // 👇 修正2：ここ！この行を追加しないとダッシュボードが怒る！
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog} 
-            currentUserId={currentUser?.id} // 👈 ログイン中のユーザーIDを渡す
+            //currentUserId={currentUser?.id} // 👈 ログイン中のユーザーIDを渡す
           />
         )}
         
