@@ -3,17 +3,25 @@ import React, { useState, useEffect } from 'react';
 import { Member } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { updateMemberInFirestore } from '../lib/firestore';
-import { User, Briefcase, Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, Calendar, Save, Loader2 } from 'lucide-react';
+import { User, Briefcase, Mail, Sparkles, Building2, Flag, ScrollText, RefreshCw, Camera, Calendar, Save, Loader2, ArrowLeft } from 'lucide-react';
 
 interface MyProfileProps {
   members: Member[];
+  targetMember?: Member | null; // 👈 追加: 表示したいメンバー（指定がなければ自分）
+  onBack?: () => void;          // 👈 追加: 戻るボタンの動作
 }
 
-const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
+const MyProfile: React.FC<MyProfileProps> = ({ members, targetMember, onBack }) => {
   const { user } = useAuth();
   
-  // 自分のデータを特定
-  const myMemberProfile = members.find(m => m.email === user?.email);
+  // ログイン中の自分
+  const currentUser = members.find(m => m.email === user?.email);
+
+  // 表示するメンバーを決定（指定があればその人、なければ自分）
+  const displayMember = targetMember || currentUser;
+
+  // 「これは自分のプロフィールか？」判定
+  const isMe = currentUser?.id === displayMember?.id;
 
   // フォームの状態
   const [formData, setFormData] = useState<Member | null>(null);
@@ -22,10 +30,10 @@ const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
 
   // データ読み込み時にフォームにセット
   useEffect(() => {
-    if (myMemberProfile) {
-      setFormData({ ...myMemberProfile });
+    if (displayMember) {
+      setFormData({ ...displayMember });
     }
-  }, [myMemberProfile]);
+  }, [displayMember]);
 
   // アバターガチャ
   const refreshAvatar = () => {
@@ -35,11 +43,11 @@ const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
   };
 
   const handleSave = async () => {
-    if (!formData || !myMemberProfile) return;
+    if (!formData || !displayMember) return;
     
     try {
       setIsSubmitting(true);
-      await updateMemberInFirestore(myMemberProfile.id, {
+      await updateMemberInFirestore(displayMember.id, {
         name: formData.name,
         role: formData.role,
         department: formData.department,
@@ -47,14 +55,13 @@ const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
         enthusiasm: formData.enthusiasm,
         career: formData.career,
         avatar: formData.avatar,
-        joinDate: formData.joinDate // 👈 入社年月も保存！
+        joinDate: formData.joinDate
       });
       
-      // 👇 【修正】リロードをやめて、完了メッセージを出す
-      alert("プロフィールを更新しました！✨"); 
+      alert("プロフィールを更新しました！✨");
       setIsEditing(false);
-      // window.location.reload(); // 👈 削除（Firestoreが自動で画面更新してくれるから不要！）
     } catch (error) {
+      console.error(error);
       alert("保存に失敗した...");
     } finally {
       setIsSubmitting(false);
@@ -63,28 +70,38 @@ const MyProfile: React.FC<MyProfileProps> = ({ members }) => {
 
   if (!user) return null;
 
-  if (!myMemberProfile) {
-    return (
-      <div className="p-8 max-w-2xl mx-auto text-center">
-        <div className="bg-yellow-50 text-yellow-800 p-8 rounded-xl border border-yellow-200">
-          <User size={48} className="mx-auto mb-4 opacity-50"/>
-          <h2 className="text-xl font-bold mb-2">メンバー登録が見つかりません</h2>
-          <p>あなたのメールアドレス ({user.email}) と紐づくメンバー情報がありません。<br/>マネージャーに登録を依頼してください。</p>
-        </div>
-      </div>
-    );
+  if (!displayMember) {
+    return <div className="p-8 text-center">メンバー情報が見つかりません。</div>;
   }
 
-  if (!formData) return <div>Loading...</div>;
+  if (!formData) return <div className="p-8 text-center text-slate-500">読み込み中...</div>;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-4xl mx-auto animate-in fade-in duration-500">
+      
+      {/* 👇 戻るボタン（自分じゃない時、または戻るアクションがある時に表示） */}
+      {!isMe && onBack && (
+        <button 
+          onClick={onBack}
+          className="mb-6 flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors font-bold"
+        >
+          <ArrowLeft size={20} />
+          一覧に戻る
+        </button>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">マイプロフィール</h1>
-          <p className="text-slate-500 mt-1">あなたの情報を管理します。</p>
+          <h1 className="text-3xl font-bold text-slate-800">
+            {isMe ? "マイプロフィール" : `${displayMember.name} さんのプロフィール`}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            {isMe ? "あなたの情報を管理します。" : "メンバーの人となりを知りましょう。"}
+          </p>
         </div>
-        {!isEditing && (
+        
+        {/* 👇 編集ボタンは「自分」の時だけ表示！ */}
+        {isMe && !isEditing && (
           <button 
             onClick={() => setIsEditing(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition-colors"

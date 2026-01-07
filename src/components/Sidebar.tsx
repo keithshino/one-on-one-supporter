@@ -2,7 +2,7 @@
 import React from 'react';
 import { View } from '../types';
 import { useAuth } from '../contexts/AuthContext'; // 👈 authのインポートは不要なので削除
-import { LayoutDashboard, Users, LogOut, MessageSquare, History } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, MessageSquare, History, Contact } from 'lucide-react';
 
 interface SidebarProps {
   currentView: View;
@@ -78,6 +78,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isAdmin, isM
           >
             <History size={20} />
             <span className="font-medium">My 1on1</span>
+          </button>
+          <button
+            onClick={() => onNavigate('profile-list')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              currentView === 'profile-list'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Contact size={20} />
+            <span className="font-medium">プロフィール一覧</span>
           </button>
         </nav>
       </div>

@@ -31,7 +31,7 @@ export interface Log {
   isPlanned: boolean;
 }
 
-export type View = 'dashboard' | 'members' | 'editor' | 'my-history' | 'profile' | 'member-detail';
+export type View = 'dashboard' | 'members' | 'editor' | 'my-history' | 'profile' | 'member-detail' | 'profile-list';
 
 export interface AppState {
   view: View;

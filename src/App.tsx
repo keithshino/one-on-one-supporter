@@ -16,6 +16,7 @@ import { Member, Log, View } from './types';
 import { db } from './lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { MemberDetail } from './components/MemberDetail';
+import { ProfileList } from './components/ProfileList';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
@@ -121,12 +122,36 @@ const App: React.FC = () => {
   if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
   if (!user) return <LoginPage />;
 
+  // 「詳細画面で見せてもいいログ」を計算する
+  const visibleLogsForDetail = React.useMemo(() => {
+    if (!selectedMember || !currentUser) return [];
+
+    // ① 自分自身のログなら全部OK
+    if (selectedMember.id === currentUser.id) return logs.filter(l => l.memberId === selectedMember.id);
+    
+    // ② 管理者なら全部OK
+    if (isAdmin) return logs.filter(l => l.memberId === selectedMember.id);
+
+    // ③ マネージャーで、かつ相手が部下ならOK
+    if (selectedMember.managerId === currentUser.id) return logs.filter(l => l.memberId === selectedMember.id);
+
+    // ④ それ以外（同僚など）は、ログは見せない！空配列を返す
+    return [];
+  }, [selectedMember, currentUser, isAdmin, logs]);
+
   return (
     <div className="flex min-h-screen">
       {/* 👇 修正：Sidebarに isManager を渡すのを忘れずに！ */}
       <Sidebar 
         currentView={state.view} 
-        onNavigate={navigate} 
+        onNavigate={(view) => {
+          // 👇 1. Sidebarから「マイプロフィール(profile)」を押したら、自分を表示したいので selectedMember を null にする
+          if (view === 'profile') {
+            setSelectedMember(null);
+          }
+          // ⚠️ 修正ポイント1: setStateは「前の状態(prev)」を受け取って「新しい状態」を返す書き方にする！
+          setState(prev => ({ ...prev, view: view }));
+        }} 
         isAdmin={isAdmin} 
         isManager={isManager} 
       />
@@ -138,7 +163,6 @@ const App: React.FC = () => {
             logs={visibleLogs} 
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog}
-            // 👇 修正：切り替えスイッチ情報を渡す！
             isAdmin={isAdmin}
             viewScope={adminViewScope}
             onToggleScope={setAdminViewScope}
@@ -148,26 +172,40 @@ const App: React.FC = () => {
         {state.view === 'members' && (
           <MemberView 
             members={visibleMembers}
-            allMembers={members}     // 👈 【追加】Firestoreから取ったそのままの全リスト！ 
+            allMembers={members}
             logs={visibleLogs}
             memberId={selectedMember?.id || null}
             onSelectMember={handleSelectMember}
             onSelectLog={handleSelectLog}
             onCreateLog={handleCreateLog}
-            // 👇 修正：MemberViewにもスイッチ情報を渡す！
             isAdmin={isAdmin}
             viewScope={adminViewScope}
             onToggleScope={setAdminViewScope}
           />
         )}
 
-        {/* 👇 3. 詳細画面の表示を追加！ */}
+        {/* 👇 3. プロフィール一覧画面の表示 */}
+        {state.view === 'profile-list' && (
+          <ProfileList 
+            members={members} 
+            onSelectMember={(member) => {
+              // 👇 2. 一覧からクリックしたら、その人をセットして「profile」画面へ！
+              setSelectedMember(member);
+              // ⚠️ 修正ポイント2: ここも setState を正しく使う
+              setState(prev => ({ ...prev, view: 'profile' }));
+            }}
+          />
+        )}
+
+        {/* 👇 3. 詳細画面の表示 */}
         {state.view === 'member-detail' && selectedMember && (
           <MemberDetail 
             member={selectedMember}
-            allMembers={members} // 上司名表示用
-            logs={logs}          // 履歴表示用
-            onBack={() => navigate('members')}
+            allMembers={members}
+            logs={visibleLogsForDetail}
+            // ⚠️ 修正ポイント3: navigate関数がないかもしれないので、setStateで直接指定！
+            // (一旦シンプルに members に戻るように設定してるけど、必要なら profile-list に変えてもOK)
+            onBack={() => setState(prev => ({ ...prev, view: 'members' }))}
             onEditLog={handleSelectLog}
           />
         )}
@@ -176,8 +214,12 @@ const App: React.FC = () => {
           <LogEditor 
             member={selectedMember} 
             initialLog={selectedLog}
-            onBack={() => navigate('members')}
-            onSave={() => navigate('members')}
+            // ⚠️ 修正ポイント4: ここも setState で統一
+            onBack={() => setState(prev => ({ ...prev, view: 'member-detail' }))}
+            onSave={() => {
+              // 保存後は再読み込みなどの処理が必要ならここに入れる
+              setState(prev => ({ ...prev, view: 'member-detail' }));
+            }}
           />
         )}
 
@@ -186,7 +228,14 @@ const App: React.FC = () => {
         )}
 
         {state.view === 'profile' && (
-          <MyProfile members={members} />
+          // 👇 3. targetMember に selectedMember を渡す！
+          <MyProfile 
+            members={members} 
+            targetMember={selectedMember} 
+            // ⚠️ 修正ポイント5: ここも setState で統一！
+            // selectedMemberがいる(=一覧から来た)なら一覧へ、いない(=自分の編集)なら undefined
+            onBack={selectedMember ? () => setState(prev => ({ ...prev, view: 'profile-list' })) : undefined}
+          />
         )}
       </main>
     </div>
