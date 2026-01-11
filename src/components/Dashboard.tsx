@@ -12,6 +12,7 @@ interface DashboardProps {
   isAdmin: boolean;
   viewScope: 'all' | 'team';
   onToggleScope: (scope: 'all' | 'team') => void;
+  onSeeAllLogs: () => void; // 👈 追加！
 }
 
 const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
@@ -26,7 +27,7 @@ const MoodIcon = ({ mood }: { mood?: Mood | string }) => {
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   members, logs, onSelectLog, onCreateLog, 
-  isAdmin, viewScope, onToggleScope // 👈 受け取る 
+  isAdmin, viewScope, onToggleScope, onSeeAllLogs
 }) => {
   
     const totalMembers = members.length;
@@ -159,7 +160,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               <span className="w-2 h-6 bg-emerald-500 rounded-full"></span>
               最近の履歴
             </h3>
-            <button className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1 transition-colors">
+            <button 
+              onClick={onSeeAllLogs}
+              className="text-xs text-slate-400 hover:text-emerald-600 flex items-center gap-1 transition-colors"
+            >
               すべて見る <ArrowRight size={12}/>
             </button>
           </div>

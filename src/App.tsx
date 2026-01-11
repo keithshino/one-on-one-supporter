@@ -17,6 +17,7 @@ import { db } from './lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { MemberDetail } from './components/MemberDetail';
 import { ProfileList } from './components/ProfileList';
+import { AllHistory } from './components/AllHistory';
 
 const App: React.FC = () => {
   const { user, loading } = useAuth();
@@ -166,6 +167,7 @@ const App: React.FC = () => {
             isAdmin={isAdmin}
             viewScope={adminViewScope}
             onToggleScope={setAdminViewScope}
+            onSeeAllLogs={() => setState(prev => ({ ...prev, view: 'all-history' }))}
           />
         )}
         
@@ -235,6 +237,15 @@ const App: React.FC = () => {
             // ⚠️ 修正ポイント5: ここも setState で統一！
             // selectedMemberがいる(=一覧から来た)なら一覧へ、いない(=自分の編集)なら undefined
             onBack={selectedMember ? () => setState(prev => ({ ...prev, view: 'profile-list' })) : undefined}
+          />
+        )}
+
+        {state.view === 'all-history' && (
+          <AllHistory 
+            logs={visibleLogs} // 権限に応じてフィルタリング済みのログを渡す
+            members={members}
+            onBack={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
+            onSelectLog={handleSelectLog}
           />
         )}
       </main>
