@@ -3,15 +3,17 @@ import React from 'react';
 import { View } from '../types';
 import { useAuth } from '../contexts/AuthContext'; // 👈 authのインポートは不要なので削除
 import { LayoutDashboard, Users, LogOut, MessageSquare, History, Contact } from 'lucide-react';
+import { Member } from '../types';
 
 interface SidebarProps {
   currentView: View;
   onNavigate: (view: View) => void;
   isAdmin: boolean;
   isManager: boolean;
+  currentUser?: Member;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isAdmin, isManager }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isAdmin, isManager, currentUser }) => {
   // 👇 【重要】user もここで受け取る！（じゃないと下でエラーになる）
   const { logout, user } = useAuth();
 
@@ -108,10 +110,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, isAdmin, isM
             className="w-10 h-10 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-colors" 
           />
           <div className="overflow-hidden">
-            <p className="font-bold text-sm truncate text-white group-hover:text-blue-400 transition-colors">
-              {user?.displayName || "ゲスト"}
+          <p className="text-sm font-bold text-slate-200 truncate">{currentUser?.name || 'ゲスト'}</p>
+            <p className="text-xs text-slate-500 group-hover:text-blue-400 transition-colors truncate">
+              プロフィール編集 &gt;
             </p>
-            <p className="text-xs text-slate-500 truncate">プロフィール編集 &gt;</p>
           </div>
         </button>
         

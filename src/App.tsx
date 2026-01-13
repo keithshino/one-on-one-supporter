@@ -1,6 +1,7 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
+import { LogOut } from 'lucide-react';
 
 // コンポーネントのインポート
 import { LoginPage } from './components/LoginPage';
@@ -20,7 +21,7 @@ import { ProfileList } from './components/ProfileList';
 import { AllHistory } from './components/AllHistory';
 
 const App: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   
   // 画面遷移やデータ保持用のState
   const [state, setState] = useState<{ view: View }>({ view: 'dashboard' });
@@ -140,6 +141,30 @@ const App: React.FC = () => {
     return [];
   }, [selectedMember, currentUser, isAdmin, logs]);
 
+  if (user && !currentUser && !loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
+          <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">アクセス権限がありません</h1>
+          <p className="text-slate-500 mb-8">
+            あなたのアカウント ({user.email}) はメンバーリストに登録されていません。<br/>
+            利用するには管理者に登録を依頼してください。
+          </p>
+          <button 
+            onClick={logout}
+            className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut size={18} />
+            ログアウトして戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* 👇 修正：Sidebarに isManager を渡すのを忘れずに！ */}
@@ -154,7 +179,8 @@ const App: React.FC = () => {
           setState(prev => ({ ...prev, view: view }));
         }} 
         isAdmin={isAdmin} 
-        isManager={isManager} 
+        isManager={isManager}
+        currentUser={currentUser} 
       />
       
       <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
