@@ -16,6 +16,11 @@ export const AllHistory: React.FC<AllHistoryProps> = ({ logs, members, onBack, o
   // 👇 修正1: 初期値を「今月」に設定（これで最初から絞り込まれて表示される！）
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 
+  // 👇 安全な検索のためのヘルパー関数（中身がなくても空文字として扱う！）
+  const safeIncludes = (text: any, keyword: string) => {
+    return String(text || '').toLowerCase().includes(keyword.toLowerCase());
+  };
+
   // ログに紐づくメンバー情報を結合して、検索フィルターをかける
   const filteredLogs = logs.map(log => {
     const member = members.find(m => m.id === log.memberId);
@@ -23,18 +28,24 @@ export const AllHistory: React.FC<AllHistoryProps> = ({ logs, members, onBack, o
   }).filter(({ log, member }) => {
     if (!member) return false;
 
+    if (!log.date) return false;
+
     // 👇 修正2: 月フィルターのロジック追加
     // selectedMonth がある場合、その月と一致するかチェック（"2025-01" とかで判定）
     if (selectedMonth && !log.date.startsWith(selectedMonth)) {
         return false;
     }
 
+    // キーワード検索（何も入力されてなければ全員表示）
+    if (!searchTerm.trim()) return true;
+
     const searchLower = searchTerm.toLowerCase();
     return (
-      member.name.toLowerCase().includes(searchLower) ||
-      log.summary?.toLowerCase().includes(searchLower) ||
-      log.good?.toLowerCase().includes(searchLower) ||
-      log.more?.toLowerCase().includes(searchLower)
+      safeIncludes(member.name, searchTerm) ||
+      safeIncludes(member.department, searchTerm) || // 部署名でも検索できるように追加！
+      safeIncludes(log.summary, searchTerm) ||
+      safeIncludes(log.good, searchTerm) ||
+      safeIncludes(log.more, searchTerm)
     );
   });
 

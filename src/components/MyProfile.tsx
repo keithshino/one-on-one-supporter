@@ -49,13 +49,13 @@ const MyProfile: React.FC<MyProfileProps> = ({ members, targetMember, onBack }) 
       setIsSubmitting(true);
       await updateMemberInFirestore(displayMember.id, {
         name: formData.name,
-        role: formData.role,
-        department: formData.department,
-        dream: formData.dream,
-        enthusiasm: formData.enthusiasm,
-        career: formData.career,
-        avatar: formData.avatar,
-        joinDate: formData.joinDate
+        role: formData.role || '',
+        department: formData.department || '',
+        dream: formData.dream || '',
+        enthusiasm: formData.enthusiasm || '',
+        career: formData.career || '',
+        avatar: formData.avatar || '',
+        joinDate: formData.joinDate || ''
       });
       
       alert("プロフィールを更新しました！✨");
