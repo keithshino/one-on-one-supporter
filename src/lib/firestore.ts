@@ -1,5 +1,16 @@
 // src/lib/firestore.ts
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, setDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  query,
+  orderBy,
+  setDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "./firebase";
 import { Log, Member, Mood } from "../types"; // Memberを追加
 import { MOCK_MEMBERS } from "../mockData"; // モックデータを読み込む
@@ -14,11 +25,14 @@ export const addLogToFirestore = async (logData: {
   summary: string;
   isPlanned: boolean;
   mood?: Mood; // 👈 追加
+  physicalCondition?: number;
+  mentalCondition?: number;
+  weather?: string;
 }) => {
   try {
     await addDoc(collection(db, "logs"), {
       ...logData, // 中身を全部展開して保存
-      mood: logData.mood || 'cloudy', // 指定なければ曇り
+      mood: logData.mood || "cloudy", // 指定なければ曇り
       createdAt: serverTimestamp(),
     });
   } catch (e) {
@@ -33,22 +47,25 @@ export const getLogsFromFirestore = async (): Promise<Log[]> => {
     // 日付が新しい順（desc）に並べて取ってくる
     const q = query(collection(db, "logs"), orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
-    
+
     // Firestoreのデータを、アプリで使いやすい形（Log型）に変換する
-    return querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            memberId: data.memberId,
-            date: data.date,
-            mood: data.mood,
-            good: data.good,
-            more: data.more,
-            nextAction: data.nextAction,
-            memo: data.memo,
-            summary: data.summary || "",
-            isPlanned: data.isPlanned || false,
-        } as Log;
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        memberId: data.memberId,
+        date: data.date,
+        mood: data.mood,
+        good: data.good,
+        more: data.more,
+        nextAction: data.nextAction,
+        memo: data.memo || "",
+        summary: data.summary || "",
+        isPlanned: data.isPlanned || false,
+        physicalCondition: data.physicalCondition,
+        mentalCondition: data.mentalCondition,
+        weather: data.weather,
+      } as Log;
     });
   } catch (e) {
     console.error("Error fetching documents: ", e);
@@ -61,10 +78,13 @@ export const getMembersFromFirestore = async (): Promise<Member[]> => {
   try {
     const q = query(collection(db, "members"));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Member));
+    return querySnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        } as Member)
+    );
   } catch (e) {
     console.error("メンバー取得エラー:", e);
     return [];
@@ -114,7 +134,7 @@ export const addMemberToFirestore = async (memberData: {
     await addDoc(collection(db, "members"), {
       ...memberData, // 受け取ったデータをそのまま展開して保存
       createdAt: serverTimestamp(),
-      nextMeetingDate: ""
+      nextMeetingDate: "",
     });
   } catch (e) {
     console.error("Error adding document: ", e);
@@ -124,7 +144,7 @@ export const addMemberToFirestore = async (memberData: {
 
 // 👇 【新規追加】メンバー情報を更新する関数（紐づけ変更もこれでやる！）
 export const updateMemberInFirestore = async (
-  id: string, 
+  id: string,
   memberData: {
     name?: string;
     email?: string;
@@ -173,6 +193,9 @@ export const updateLogInFirestore = async (
     nextAction: string;
     summary: string;
     mood?: Mood; // 👈 追加
+    physicalCondition?: number;
+    mentalCondition?: number;
+    weather?: string;
   }
 ) => {
   try {

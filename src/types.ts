@@ -29,6 +29,9 @@ export interface Log {
   memo: string;
   summary: string;
   isPlanned: boolean;
+  physicalCondition?: number; // フィジカルコンディション (1-5)
+  mentalCondition?: number; // メンタルコンディション (1-5)
+  weather?: string; // お天気
 }
 
 export type View = 'dashboard' | 'members' | 'editor' | 'my-history' | 'profile' | 'member-detail' | 'profile-list' | 'all-history';
