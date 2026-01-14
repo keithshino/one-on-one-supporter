@@ -154,6 +154,8 @@ export const LogEditor: React.FC<LogEditorProps> = ({
         more: aiResponse.more,
         nextAction: aiResponse.nextAction,
         mood: aiResponse.mood,
+        physicalCondition: aiResponse.physicalCondition,
+        mentalCondition: aiResponse.mentalCondition,
       }));
 
       alert("AIが議事録を生成しました！✨");

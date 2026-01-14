@@ -46,9 +46,13 @@ interface LogAIResponse {
   more: string;
   nextAction: string;
   mood: Mood;
+  physicalCondition?: number; // フィジカルコンディション (1-5)
+  mentalCondition?: number; // メンタルコンディション (1-5)
 }
 
-export const generateLogFromTranscript = async (transcript: string): Promise<LogAIResponse> => {
+export const generateLogFromTranscript = async (
+  transcript: string
+): Promise<LogAIResponse> => {
   if (!API_KEY) {
     throw new Error("APIキー設定エラー");
   }
@@ -60,13 +64,22 @@ export const generateLogFromTranscript = async (transcript: string): Promise<Log
     const prompt = `
       あなたは優秀なマネージャーの秘書です。
       以下の1on1ミーティングの文字起こしテキストを読み、
-      JSON形式で以下の5つの項目を抽出・要約してください。
+      JSON形式で以下の項目を抽出・要約してください。
 
       1. summary: 全体の要約（100文字程度）
       2. good: 話し手（部下）の良かった点や成果
       3. more: 課題や改善点、悩み
       4. nextAction: 次にやるべきこと（To-Do）
       5. mood: 部下の雰囲気 (sunny, cloudy, rainy, stormy のいずれかを選択)
+      6. physicalCondition: フィジカルコンディション（1-5の数値で評価。会話から読み取れない場合はnull）
+      7. mentalCondition: メンタルコンディション（1-5の数値で評価。会話から読み取れない場合はnull）
+
+      評価基準：
+      - 1: 非常に悪い、深刻な状態
+      - 2: 悪い、改善が必要
+      - 3: 普通、特に問題なし
+      - 4: 良い、良好な状態
+      - 5: 非常に良い、最高の状態
 
       出力は必ず純粋なJSONのみを返してください。Markdownのコードブロックは不要です。
 
@@ -77,11 +90,13 @@ export const generateLogFromTranscript = async (transcript: string): Promise<Log
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
-    
-    // JSONとしてパースする（余計な記号が入っていたら削除）
-    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanedText) as LogAIResponse;
 
+    // JSONとしてパースする（余計な記号が入っていたら削除）
+    const cleanedText = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+    return JSON.parse(cleanedText) as LogAIResponse;
   } catch (error) {
     console.error("Gemini Error (Transcript):", error);
     throw new Error("AI生成に失敗しました");
