@@ -1,7 +1,7 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
-import { LogOut } from 'lucide-react';
+import { LogOut, LayoutDashboard, Users, Contact, User, History } from 'lucide-react'; // アイコン追加
 
 // コンポーネントのインポート
 import { LoginPage } from './components/LoginPage';
@@ -11,14 +11,14 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import MyHistory from './components/MyHistory';
 import MyProfile from './components/MyProfile';
+import { MemberDetail } from './components/MemberDetail';
+import { ProfileList } from './components/ProfileList';
+import { AllHistory } from './components/AllHistory';
 
 // 型とFirebase関連
 import { Member, Log, View } from './types';
 import { db } from './lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { MemberDetail } from './components/MemberDetail';
-import { ProfileList } from './components/ProfileList';
-import { AllHistory } from './components/AllHistory';
 
 const App: React.FC = () => {
   const { user, loading, logout } = useAuth();
@@ -28,21 +28,30 @@ const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   
+  // 👇 修正1: メンバーデータの読み込み中フラグを追加（チラつき防止）
+  const [isMembersLoading, setIsMembersLoading] = useState(true);
+  
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
 
-  // 👇 管理者用の表示切り替えスイッチ ('all'=全体, 'team'=自チーム)
+  // 管理者用の表示切り替えスイッチ
   const [adminViewScope, setAdminViewScope] = useState<'all' | 'team'>('all');
 
   // データ取得 (useEffect)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setIsMembersLoading(false); // ユーザーがいないならロード終了扱いでOK
+      return;
+    }
 
+    // メンバー取得
     const unsubscribeMembers = onSnapshot(collection(db, "members"), (snapshot) => {
       const membersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Member));
       setMembers(membersData);
+      setIsMembersLoading(false); // 👇 データが届いたらロード完了！
     });
 
+    // ログ取得
     const logsQuery = query(collection(db, "logs"), orderBy("date", "desc"));
     const unsubscribeLogs = onSnapshot(logsQuery, (snapshot) => {
       const logsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Log));
@@ -59,32 +68,26 @@ const App: React.FC = () => {
   const currentUser = members.find(m => m.email === user?.email);
   const isAdmin = currentUser?.isAdmin === true;
 
-  // 👇 マネージャー判定：誰かの上司になっているか？
+  // マネージャー判定
   const isManager = React.useMemo(() => {
     if (!currentUser) return false;
     return members.some(m => m.managerId === currentUser.id);
   }, [members, currentUser]);
 
-  // 👇 表示するメンバーのフィルターロジック
+  // 表示するメンバーのフィルターロジック
   const visibleMembers = React.useMemo(() => {
     if (!currentUser) return [];
-
-    // 1. 管理者の場合
     if (isAdmin) {
-      if (adminViewScope === 'all') return members; // 全員表示
-      return members.filter(m => m.managerId === currentUser.id); // 自チームのみ
+      if (adminViewScope === 'all') return members;
+      return members.filter(m => m.managerId === currentUser.id);
     }
-
-    // 2. マネージャーの場合
     if (isManager) {
-      return members.filter(m => m.managerId === currentUser.id); // 自チームのみ
+      return members.filter(m => m.managerId === currentUser.id);
     }
-
-    // 3. 一般メンバーの場合
-    return []; // サイドバーで隠されるけど、念のため空配列
+    return [];
   }, [members, currentUser, isAdmin, isManager, adminViewScope]);
 
-  // 👇 ログのフィルター
+  // ログのフィルター
   const visibleLogs = React.useMemo(() => {
     const visibleMemberIds = new Set(visibleMembers.map(m => m.id));
     return logs.filter(l => visibleMemberIds.has(l.memberId));
@@ -100,7 +103,7 @@ const App: React.FC = () => {
 
   const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
-    navigate('member-detail'); // 👈 ここを変更！
+    navigate('member-detail');
   };
 
   const handleCreateLog = (memberId: string) => {
@@ -121,27 +124,65 @@ const App: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center">Loading...</div>;
-  if (!user) return <LoginPage />;
-
   // 「詳細画面で見せてもいいログ」を計算する
   const visibleLogsForDetail = React.useMemo(() => {
     if (!selectedMember || !currentUser) return [];
-
-    // ① 自分自身のログなら全部OK
     if (selectedMember.id === currentUser.id) return logs.filter(l => l.memberId === selectedMember.id);
-    
-    // ② 管理者なら全部OK
     if (isAdmin) return logs.filter(l => l.memberId === selectedMember.id);
-
-    // ③ マネージャーで、かつ相手が部下ならOK
     if (selectedMember.managerId === currentUser.id) return logs.filter(l => l.memberId === selectedMember.id);
-
-    // ④ それ以外（同僚など）は、ログは見せない！空配列を返す
     return [];
   }, [selectedMember, currentUser, isAdmin, logs]);
 
-  if (user && !currentUser && !loading) {
+  // 👇 スマホ用の下部メニュー部品
+  const MobileMenu = () => (
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 flex justify-around z-50 md:hidden pb-safe">
+      <button 
+        onClick={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
+        className={`flex flex-col items-center p-2 rounded-lg ${state.view === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`}
+      >
+        <LayoutDashboard size={24} />
+        <span className="text-[10px] font-bold mt-1">ダッシュボード</span>
+      </button>
+
+      <button 
+        onClick={() => setState(prev => ({ ...prev, view: 'members' }))}
+        className={`flex flex-col items-center p-2 rounded-lg ${state.view === 'members' ? 'text-blue-600' : 'text-slate-400'}`}
+      >
+        <Users size={24} />
+        <span className="text-[10px] font-bold mt-1">メンバー</span>
+      </button>
+
+      <button 
+        onClick={() => setState(prev => ({ ...prev, view: 'profile-list' }))}
+        className={`flex flex-col items-center p-2 rounded-lg ${state.view.includes('profile') ? 'text-blue-600' : 'text-slate-400'}`}
+      >
+        <Contact size={24} />
+        <span className="text-[10px] font-bold mt-1">プロフィール</span>
+      </button>
+
+      <button 
+        onClick={() => {
+          setSelectedMember(null);
+          setState(prev => ({ ...prev, view: 'profile' }));
+        }}
+        className={`flex flex-col items-center p-2 rounded-lg ${state.view === 'profile' && !selectedMember ? 'text-blue-600' : 'text-slate-400'}`}
+      >
+        <User size={24} />
+        <span className="text-[10px] font-bold mt-1">マイページ</span>
+      </button>
+    </div>
+  );
+
+  // ローディング判定
+  if (loading || (user && isMembersLoading)) { // 修正：メンバー読込中もローディング画面を出す
+    return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  }
+  
+  if (!user) return <LoginPage />;
+
+  // ガード処理: ログインしてるけど、メンバー登録がない人はブロック！
+  // 修正：isMembersLoadingのチェックは上で済ませているので、ここでは !currentUser だけで確実
+  if (user && !currentUser) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-slate-200">
@@ -166,24 +207,28 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* 👇 修正：Sidebarに isManager を渡すのを忘れずに！ */}
-      <Sidebar 
-        currentView={state.view} 
-        onNavigate={(view) => {
-          // 👇 1. Sidebarから「マイプロフィール(profile)」を押したら、自分を表示したいので selectedMember を null にする
-          if (view === 'profile') {
-            setSelectedMember(null);
-          }
-          // ⚠️ 修正ポイント1: setStateは「前の状態(prev)」を受け取って「新しい状態」を返す書き方にする！
-          setState(prev => ({ ...prev, view: view }));
-        }} 
-        isAdmin={isAdmin} 
-        isManager={isManager}
-        currentUser={currentUser} 
-      />
+    <div className="flex min-h-screen bg-slate-50">
+      {/* 💻 PC用サイドバー */}
+      <div className="hidden md:block">
+        <Sidebar 
+          currentView={state.view} 
+          onNavigate={(view) => {
+            if (view === 'profile') {
+              setSelectedMember(null);
+            }
+            setState(prev => ({ ...prev, view: view }));
+          }} 
+          isAdmin={isAdmin} 
+          isManager={isManager}
+          currentUser={currentUser} 
+        />
+      </div>
       
-      <main className="flex-1 ml-64 p-8 bg-slate-50 overflow-y-auto">
+      {/* 📱 スマホ用ボトムナビ */}
+      <MobileMenu />
+
+      {/* メインエリア */}
+      <main className="flex-1 ml-0 md:ml-64 p-4 md:p-8 pb-24 md:pb-8 overflow-y-auto w-full">
         {state.view === 'dashboard' && (
           <Dashboard 
             members={visibleMembers} 
@@ -212,27 +257,21 @@ const App: React.FC = () => {
           />
         )}
 
-        {/* 👇 3. プロフィール一覧画面の表示 */}
         {state.view === 'profile-list' && (
           <ProfileList 
             members={members} 
             onSelectMember={(member) => {
-              // 👇 2. 一覧からクリックしたら、その人をセットして「profile」画面へ！
               setSelectedMember(member);
-              // ⚠️ 修正ポイント2: ここも setState を正しく使う
               setState(prev => ({ ...prev, view: 'profile' }));
             }}
           />
         )}
 
-        {/* 👇 3. 詳細画面の表示 */}
         {state.view === 'member-detail' && selectedMember && (
           <MemberDetail 
             member={selectedMember}
             allMembers={members}
             logs={visibleLogsForDetail}
-            // ⚠️ 修正ポイント3: navigate関数がないかもしれないので、setStateで直接指定！
-            // (一旦シンプルに members に戻るように設定してるけど、必要なら profile-list に変えてもOK)
             onBack={() => setState(prev => ({ ...prev, view: 'members' }))}
             onEditLog={handleSelectLog}
           />
@@ -242,10 +281,8 @@ const App: React.FC = () => {
           <LogEditor 
             member={selectedMember} 
             initialLog={selectedLog}
-            // ⚠️ 修正ポイント4: ここも setState で統一
             onBack={() => setState(prev => ({ ...prev, view: 'member-detail' }))}
             onSave={() => {
-              // 保存後は再読み込みなどの処理が必要ならここに入れる
               setState(prev => ({ ...prev, view: 'member-detail' }));
             }}
           />
@@ -256,19 +293,16 @@ const App: React.FC = () => {
         )}
 
         {state.view === 'profile' && (
-          // 👇 3. targetMember に selectedMember を渡す！
           <MyProfile 
             members={members} 
             targetMember={selectedMember} 
-            // ⚠️ 修正ポイント5: ここも setState で統一！
-            // selectedMemberがいる(=一覧から来た)なら一覧へ、いない(=自分の編集)なら undefined
             onBack={selectedMember ? () => setState(prev => ({ ...prev, view: 'profile-list' })) : undefined}
           />
         )}
 
         {state.view === 'all-history' && (
           <AllHistory 
-            logs={visibleLogs} // 権限に応じてフィルタリング済みのログを渡す
+            logs={visibleLogs} 
             members={members}
             onBack={() => setState(prev => ({ ...prev, view: 'dashboard' }))}
             onSelectLog={handleSelectLog}
