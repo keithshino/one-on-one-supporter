@@ -359,27 +359,6 @@ export const LogEditor: React.FC<LogEditorProps> = ({
             </div>
           </div>
 
-          {/* 次回の予定（新規作成時のみ） */}
-          {!initialLog && (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
-                <Calendar size={16} className="text-blue-500" /> 次回の予定
-                (任意)
-              </label>
-              <input
-                type="date"
-                value={formData.nextMeetingDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, nextMeetingDate: e.target.value })
-                }
-                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-blue-50/50 border-blue-100 text-blue-900"
-              />
-              <p className="text-xs text-slate-400 mt-1 ml-1">
-                ※ 入力するとダッシュボード等に反映されます
-              </p>
-            </div>
-          )}
-
           {/* Good / More / Next Action */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -422,6 +401,27 @@ export const LogEditor: React.FC<LogEditorProps> = ({
               className="w-full h-24 p-4 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none resize-none transition-shadow"
             />
           </div>
+
+          {/* 次回の予定（新規作成時のみ） */}
+          {!initialLog && (
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                <Calendar size={16} className="text-blue-500" /> 次回の予定
+                (任意)
+              </label>
+              <input
+                type="date"
+                value={formData.nextMeetingDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, nextMeetingDate: e.target.value })
+                }
+                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-shadow bg-blue-50/50 border-blue-100 text-blue-900"
+              />
+              <p className="text-xs text-slate-400 mt-1 ml-1">
+                ※ 入力するとダッシュボード等に反映されます
+              </p>
+            </div>
+          )}
 
           {/* AI要約エリア */}
           <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
