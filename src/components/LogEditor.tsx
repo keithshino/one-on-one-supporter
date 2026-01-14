@@ -28,6 +28,7 @@ interface LogEditorProps {
   initialLog?: Log | null;
   onBack: () => void;
   onSave: () => void;
+  currentUser: Member | undefined;
 }
 
 export const LogEditor: React.FC<LogEditorProps> = ({
@@ -35,6 +36,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({
   initialLog,
   onBack,
   onSave,
+  currentUser,
 }) => {
   // 👇 ファイル操作のためのRef（これがないと動かない！）
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +106,8 @@ export const LogEditor: React.FC<LogEditorProps> = ({
         mood: formData.mood,
         physicalCondition: formData.physicalCondition,
         mentalCondition: formData.mentalCondition,
+        createdBy: initialLog?.createdBy || currentUser?.id,
+        creatorName: initialLog?.creatorName || currentUser?.name,
       };
 
       if (initialLog) {
@@ -161,7 +165,7 @@ export const LogEditor: React.FC<LogEditorProps> = ({
       alert("AIが議事録を生成しました！✨");
     } catch (error) {
       console.error(error);
-      alert("AI生成に失敗しました... もう一度試してみてください。");
+      alert("AI生成に失敗てもうた... もう一度試してみて。");
     } finally {
       setIsGenerating(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

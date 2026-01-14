@@ -285,6 +285,7 @@ const App: React.FC = () => {
             onSave={() => {
               setState(prev => ({ ...prev, view: 'member-detail' }));
             }}
+            currentUser={currentUser}
           />
         )}
 

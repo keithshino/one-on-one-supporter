@@ -32,6 +32,8 @@ export interface Log {
   physicalCondition?: number; // フィジカルコンディション (1-5)
   mentalCondition?: number; // メンタルコンディション (1-5)
   weather?: string; // お天気
+  createdBy?: string;   // 記録者のID
+  creatorName?: string; // 記録者の名前
 }
 
 export type View = 'dashboard' | 'members' | 'editor' | 'my-history' | 'profile' | 'member-detail' | 'profile-list' | 'all-history';

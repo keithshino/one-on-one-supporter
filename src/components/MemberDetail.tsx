@@ -121,7 +121,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({
                       <h3 className="font-bold text-lg text-slate-800">
                         {new Date(log.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })}
                       </h3>
-                      <p className="text-xs text-slate-400 font-bold">1on1 Log</p>
+                      <div className="flex items-center gap-2 mt-1">
+                         <span className="text-xs text-slate-400 font-bold">1on1 Log</span>
+                         {log.creatorName && (
+                           <span className="text-xs text-slate-400 flex items-center gap-1">
+                             • By {log.creatorName}
+                           </span>
+                         )}
+                      </div>
                     </div>
                   </div>
                   <span className="px-3 py-1 bg-slate-50 text-slate-500 text-xs font-bold rounded-full border border-slate-200 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
